@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoStory - Decentralized Story Map</title>
+<link rel="shortcut icon" href="./public/logo_geostory.png" type="image/x-icon">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,600;1,400&family=Unbounded:wght@300;400;600;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading">
+  <div class="load-logo">GEO<span>STORY</span></div>
+  <div class="load-dots">
+    <div class="load-dot"></div>
+    <div class="load-dot"></div>
+    <div class="load-dot"></div>
+  </div>
+  <div class="load-sub">CONNECTING TO SHELBY PROTOCOL...</div>
+</div>
+
+<div id="scan"></div>
+<div id="map"></div>
+
+<!-- Topbar -->
+<div id="topbar">
+  <a class="logo" href="#">
+    <div class="logo-icon">✦</div>
+    <div class="logo-text">GEO<span>STORY</span></div>
+  </a>
+  <div class="topbar-center">
+    <div class="stat-chip">Stories <b id="storyCount">0</b></div>
+    <div class="protocol-badge"><div class="protocol-dot"></div>SHELBY TESTNET</div>
+  </div>
+  <button id="walletBtn" onclick="renderWalletOptions(); openModal('walletModal')">CONNECT WALLET</button>
+</div>
+
+<!-- Feed toggle -->
+<button id="feedToggleBtn" onclick="toggleFeed()">☰ FEED</button>
+
+<!-- Map tools -->
+<div id="mapTools">
+  <button class="maptool" id="heatBtn" onclick="toggleHeat(this)" title="Heatmap">🌡</button>
+  <button class="maptool" id="locBtn" onclick="locateMe()" title="My Location">◎</button>
+  <button class="maptool" id="profBtn" onclick="toggleProfile()" title="Profile">◉</button>
+</div>
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <div class="sidebar-head">
+    <div class="sidebar-title">// Story Feed</div>
+    <button class="sidebar-close" onclick="toggleFeed()">✕</button>
+  </div>
+  <div class="story-list" id="storyList"></div>
+</div>
+
+<!-- Filter bar -->
+<div id="filterBar">
+  <button class="f-btn active" onclick="setFilter('all',this)">ALL</button>
+  <button class="f-btn" onclick="setFilter('photo',this)">📷 PHOTO</button>
+  <button class="f-btn" onclick="setFilter('adventure',this)">⛰ ADV</button>
+  <button class="f-btn" onclick="setFilter('food',this)">🍜 FOOD</button>
+  <button class="f-btn" onclick="setFilter('art',this)">🎨 ART</button>
+   <button class="f-btn" onclick="setFilter('travel',this)">✈ Travel</button>
+  <button class="f-btn" onclick="setFilter('nature',this)">🌿 Nature</button>
+  <button class="f-btn" onclick="setFilter('mine',this)">MY STORIES</button>
+</div>
+
+<!-- FAB -->
+<button id="fab" onclick="startPost()" title="Post Story">✦</button>
+
+<!-- Profile card -->
+<div id="profileCard">
+  <div class="prof-addr" id="profAddr">—</div>
+  <div class="prof-grid">
+    <div class="prof-stat">
+      <div class="prof-num" id="profStories">0</div>
+      <div class="prof-lbl">Stories</div>
+    </div>
+    <div class="prof-stat">
+      <div class="prof-num" id="profLikes">0</div>
+      <div class="prof-lbl">Likes</div>
+    </div>
+  </div>
+  <button class="prof-disconnect" onclick="disconnect()">Disconnect</button>
+</div>
+
+<!-- Pick mode bar -->
+<div id="pickBar">
+  📍 Click the map to set your location
+  <button class="pick-cancel" onclick="cancelPick()">Cancel</button>
+</div>
+
+<!-- ─── Wallet Modal ─── -->
+<div class="overlay" id="walletModal" onclick="overlayClick(event,'walletModal')">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">Connect Wallet</div>
+        <div class="modal-sub">// AUTHENTICATE WITH WEB3</div>
+      </div>
+      <button class="modal-x" onclick="closeModal('walletModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Wallet options được render động bởi renderWalletOptions() trong main.ts -->
+      <!-- Fallback nếu JS chưa load -->
+      <div class="wallet-opt" onclick="connectWallet('Petra')">
+        <div class="wallet-icon" style="background:none;padding:0;display:flex;align-items:center;justify-content:center">
+          <img src="https://petra.app/favicon.ico" alt="Petra" width="32" height="32" style="border-radius:8px" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'🅿',style:'font-size:1.6rem'}))">
+        </div>
+        <div>
+          <div class="wallet-name">Petra Wallet</div>
+          <div class="wallet-chain">Aptos · AIP-62</div>
+        </div>
+      </div>
+      <div class="wallet-opt" onclick="connectWallet('metamask')">
+        <div class="wallet-icon">🦊</div>
+        <div>
+          <div class="wallet-name">MetaMask</div>
+          <div class="wallet-chain">Ethereum / EVM</div>
+        </div>
+      </div>
+      <div class="wallet-opt" onclick="connectWallet('demo')">
+        <div class="wallet-icon">🔑</div>
+        <div>
+          <div class="wallet-name">Demo Mode</div>
+          <div class="wallet-chain">Try without wallet · simulated</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Post Modal ─── -->
+<div class="overlay" id="postModal" onclick="overlayClick(event,'postModal')">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">Post a Story</div>
+        <div class="modal-sub">// STORED ON SHELBY PROTOCOL</div>
+      </div>
+      <button class="modal-x" onclick="closeModal('postModal')">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="fg">
+        <label class="fl">Story Title</label>
+        <input class="fi" id="iTitle" placeholder="e.g. Sunrise over Hội An...">
+      </div>
+
+      <div class="fg">
+        <label class="fl">Description</label>
+        <textarea class="fi" id="iDesc" placeholder="Share your experience at this place..."></textarea>
+      </div>
+
+      <div class="fg">
+        <label class="fl">Photo</label>
+        <div class="img-drop" id="imgDrop">
+          <div class="img-drop-icon">📷</div>
+          <div class="img-drop-hint">Drop image or <span>click to browse</span></div>
+          <input type="file" accept="image/*" id="imgFile" onchange="handleImg(event)">
+          <img id="imgPreview" class="img-preview" alt="Preview">
+        </div>
+      </div>
+
+      <div class="fg">
+        <label class="fl">Location</label>
+        <div class="loc-btn" id="locBtn2" onclick="startPick()">
+          <div>
+            <div class="loc-coords" id="coordsTxt">Not selected</div>
+            <div class="loc-hint">Click to pin on map</div>
+          </div>
+          <span style="color:var(--accent);font-size:1.1rem">📍</span>
+        </div>
+      </div>
+
+      <div class="fg">
+        <label class="fl">Mood</label>
+        <div class="mood-row" id="moodRow">
+          <button class="mood-opt sel" data-mood="😊" onclick="pickMood(this)">😊<span>happy</span></button>
+          <button class="mood-opt" data-mood="🤩" onclick="pickMood(this)">🤩<span>amazed</span></button>
+          <button class="mood-opt" data-mood="😌" onclick="pickMood(this)">😌<span>peaceful</span></button>
+          <button class="mood-opt" data-mood="🤔" onclick="pickMood(this)">🤔<span>curious</span></button>
+          <button class="mood-opt" data-mood="😢" onclick="pickMood(this)">😢<span>sad</span></button>
+          <button class="mood-opt" data-mood="🔥" onclick="pickMood(this)">🔥<span>epic</span></button>
+        </div>
+      </div>
+
+      <div class="fg">
+        <label class="fl">Category</label>
+        <div class="cat-row" id="catRow">
+          <div class="cat-chip sel" data-cat="photo" onclick="pickCat(this)">📷 Photo</div>
+          <div class="cat-chip" data-cat="adventure" onclick="pickCat(this)">⛰ Adventure</div>
+          <div class="cat-chip" data-cat="food" onclick="pickCat(this)">🍜 Food</div>
+          <div class="cat-chip" data-cat="art" onclick="pickCat(this)">🎨 Art</div>
+          <div class="cat-chip" data-cat="travel" onclick="pickCat(this)">✈ Travel</div>
+          <div class="cat-chip" data-cat="nature" onclick="pickCat(this)">🌿 Nature</div>
+        </div>
+      </div>
+
+      <div class="prog-wrap" id="progWrap"><div class="prog-fill"></div></div>
+
+      <button class="sub-btn" id="subBtn" onclick="submitStory()">
+        ✦ PUBLISH TO SHELBY
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- ─── AI Travel Companion ─── -->
+<div id="aiPanel">
+  <div class="ai-header">
+    <div class="ai-header-left">
+      <div class="ai-dot"></div>
+      <span class="ai-title">GEOSTORY ASSISTANT</span>
+    </div>
+    <span class="ai-loc" id="aiLoc">📍 —</span>
+    <button class="ai-close" onclick="toggleAI()">✕</button>
+  </div>
+  <div class="ai-messages" id="aiMessages">
+    <div class="ai-msg ai-msg--ai">
+      <span class="ai-ctx">// GeoStory Assistant</span>
+      Hi! I'm looking at the area you're viewing. Ask me about places, food, or recent stories!
+    </div>
+  </div>
+  <div class="ai-quick" id="aiQuick">
+    <button class="ai-qp" onclick="aiQuickAsk('What are some beautiful places here?')">🌅 Beautiful location?</button>
+    <button class="ai-qp" onclick="aiQuickAsk('What are the local specialties here?')">🍜 Specialty?</button>
+    <button class="ai-qp" onclick="aiQuickAsk('What the best story recently?')">✦ Great story?</button>
+    <button class="ai-qp" onclick="aiQuickAsk('What the the beautiful painting here?')">🎨 Beautiful painting?</button>
+  </div>
+  <div class="ai-input-row">
+    <input class="ai-input" id="aiInput" placeholder="Ask about this area..."
+           onkeydown="if(event.key==='Enter')aiSend()"/>
+    <button class="ai-send" onclick="aiSend()">➤</button>
+  </div>
+</div>
+<button id="aiBtn" onclick="toggleAI()" title="AI Travel Companion">✦ AI</button>
+
+<script>
+  // Buffer polyfill — phải chạy TRƯỚC khi bất kỳ SDK nào load
+  // Shelby SDK dùng Buffer ngay khi parse module, không thể chờ import async
+  window.global = window;
+  window.process = window.process || { env: {}, browser: true };
+</script>
+<script type="module">
+  import { Buffer } from 'buffer';
+  window.Buffer = Buffer;
+</script>
+<!-- ① Leaflet global trước -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- ① Leaflet.heat plugin -->
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<!-- ② Logic gốc sau khi đã có L -->
+<script src="./public/index.js"></script>
+<!-- ③ Shelby SDK (ES module) cuối cùng -->
+<script type="module" src="./src/main.ts"></script>
+</body>
+</html>
