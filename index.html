@@ -29,7 +29,7 @@
 <!-- Topbar -->
 <div id="topbar">
   <a class="logo" href="#">
-    <div class="logo-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+    <div class="logo-icon">✦</div>
     <div class="logo-text">GEO<span>STORY</span></div>
   </a>
   <div class="topbar-center">
@@ -40,13 +40,13 @@
 </div>
 
 <!-- Feed toggle -->
-<button id="feedToggleBtn" onclick="toggleFeed()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg> FEED</button>
+<button id="feedToggleBtn" onclick="toggleFeed()">☰ FEED</button>
 
 <!-- Map tools -->
 <div id="mapTools">
-  <button class="maptool" id="heatBtn" onclick="toggleHeat(this)" title="Heatmap"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c0 6-6 6-6 12a6 6 0 0 0 12 0c0-6-6-6-6-12z"/><path d="M12 12c0 3-2 4-2 6a2 2 0 0 0 4 0c0-2-2-3-2-6z"/></svg></button>
-  <button class="maptool" id="locBtn" onclick="locateMe()" title="My Location"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg></button>
-  <button class="maptool" id="profBtn" onclick="toggleProfile()" title="Profile"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></button>
+  <button class="maptool" id="heatBtn" onclick="toggleHeat(this)" title="Heatmap">🌡</button>
+  <button class="maptool" id="locBtn" onclick="locateMe()" title="My Location">◎</button>
+  <button class="maptool" id="profBtn" onclick="toggleProfile()" title="Profile">◉</button>
 </div>
 
 <!-- Sidebar -->
@@ -61,12 +61,12 @@
 <!-- Filter bar -->
 <div id="filterBar">
   <button class="f-btn active" onclick="setFilter('all',this)">ALL</button>
-  <button class="f-btn" onclick="setFilter('photo',this)"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg> PHOTO</button>
-  <button class="f-btn" onclick="setFilter('adventure',this)"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg> ADV</button>
-  <button class="f-btn" onclick="setFilter('food',this)"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg> FOOD</button>
-  <button class="f-btn" onclick="setFilter('art',this)"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg> ART</button>
-   <button class="f-btn" onclick="setFilter('travel',this)"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21 4 19 4c-1 0-1.5.5-3.5 2.5L8 8 .8 6.2c-.3-.1-.5.1-.5.4l.6 1.3 2.2.8L5 11l-1 1 1 2 2-1 2 2 .8 2.2 1.3.6c.3 0 .5-.2.4-.5z"/></svg> Travel</button>
-  <button class="f-btn" onclick="setFilter('nature',this)"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg> Nature</button>
+  <button class="f-btn" onclick="setFilter('photo',this)">📷 PHOTO</button>
+  <button class="f-btn" onclick="setFilter('adventure',this)">⛰ ADV</button>
+  <button class="f-btn" onclick="setFilter('food',this)">🍜 FOOD</button>
+  <button class="f-btn" onclick="setFilter('art',this)">🎨 ART</button>
+   <button class="f-btn" onclick="setFilter('travel',this)">✈ Travel</button>
+  <button class="f-btn" onclick="setFilter('nature',this)">🌿 Nature</button>
   <button class="f-btn" onclick="setFilter('mine',this)">MY STORIES</button>
 </div>
 
@@ -91,7 +91,7 @@
 
 <!-- Pick mode bar -->
 <div id="pickBar">
-  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Click the map to set your location
+  📍 Click the map to set your location
   <button class="pick-cancel" onclick="cancelPick()">Cancel</button>
 </div>
 
@@ -109,21 +109,23 @@
       <!-- Wallet options được render động bởi renderWalletOptions() trong main.ts -->
       <!-- Fallback nếu JS chưa load -->
       <div class="wallet-opt" onclick="connectWallet('Petra')">
-        <div class="wallet-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent)"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></div>
+        <div class="wallet-icon" style="background:none;padding:0;display:flex;align-items:center;justify-content:center">
+          <img src="https://petra.app/favicon.ico" alt="Petra" width="32" height="32" style="border-radius:8px" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'🅿',style:'font-size:1.6rem'}))">
+        </div>
         <div>
           <div class="wallet-name">Petra Wallet</div>
           <div class="wallet-chain">Aptos · AIP-62</div>
         </div>
       </div>
       <div class="wallet-opt" onclick="connectWallet('metamask')">
-        <div class="wallet-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent2)"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div>
+        <div class="wallet-icon">🦊</div>
         <div>
           <div class="wallet-name">MetaMask</div>
           <div class="wallet-chain">Ethereum / EVM</div>
         </div>
       </div>
       <div class="wallet-opt" onclick="connectWallet('demo')">
-        <div class="wallet-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent3)"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>
+        <div class="wallet-icon">🔑</div>
         <div>
           <div class="wallet-name">Demo Mode</div>
           <div class="wallet-chain">Try without wallet · simulated</div>
@@ -158,7 +160,7 @@
       <div class="fg">
         <label class="fl">Photo</label>
         <div class="img-drop" id="imgDrop">
-          <div class="img-drop-icon" style="display:flex;justify-content:center"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted)"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg></div>
+          <div class="img-drop-icon">📷</div>
           <div class="img-drop-hint">Drop image or <span>click to browse</span></div>
           <input type="file" accept="image/*" id="imgFile" onchange="handleImg(event)">
           <img id="imgPreview" class="img-preview" alt="Preview">
@@ -170,40 +172,40 @@
         <div class="loc-btn" id="locBtn2" onclick="startPick()">
           <div>
             <div class="loc-coords" id="coordsTxt">Not selected</div>
-            <div class="loc-hint"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;color:var(--accent)"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Click to pin on map</div>
+            <div class="loc-hint">Click to pin on map</div>
           </div>
-          <span style="color:var(--accent)"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>
+          <span style="color:var(--accent);font-size:1.1rem">📍</span>
         </div>
       </div>
 
       <div class="fg">
         <label class="fl">Mood</label>
         <div class="mood-row" id="moodRow">
-          <button class="mood-opt sel" data-mood="😊" onclick="pickMood(this)"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg><span>happy</span></button>
-          <button class="mood-opt" data-mood="🤩" onclick="pickMood(this)"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 3 4 3 4-3 4-3"/><line x1="9" y1="8" x2="9.01" y2="8"/><line x1="15" y1="8" x2="15.01" y2="8"/><path d="m15 9-1.5 1.5"/><path d="m9 9 1.5 1.5"/></svg><span>amazed</span></button>
-          <button class="mood-opt" data-mood="😌" onclick="pickMood(this)"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 1.5 4 1.5 4-1.5 4-1.5"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg><span>peaceful</span></button>
-          <button class="mood-opt" data-mood="🤔" onclick="pickMood(this)"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>curious</span></button>
-          <button class="mood-opt" data-mood="😢" onclick="pickMood(this)"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg><span>sad</span></button>
-          <button class="mood-opt" data-mood="🔥" onclick="pickMood(this)"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span>epic</span></button>
+          <button class="mood-opt sel" data-mood="😊" onclick="pickMood(this)">😊<span>happy</span></button>
+          <button class="mood-opt" data-mood="🤩" onclick="pickMood(this)">🤩<span>amazed</span></button>
+          <button class="mood-opt" data-mood="😌" onclick="pickMood(this)">😌<span>peaceful</span></button>
+          <button class="mood-opt" data-mood="🤔" onclick="pickMood(this)">🤔<span>curious</span></button>
+          <button class="mood-opt" data-mood="😢" onclick="pickMood(this)">😢<span>sad</span></button>
+          <button class="mood-opt" data-mood="🔥" onclick="pickMood(this)">🔥<span>epic</span></button>
         </div>
       </div>
 
       <div class="fg">
         <label class="fl">Category</label>
         <div class="cat-row" id="catRow">
-          <div class="cat-chip sel" data-cat="photo" onclick="pickCat(this)"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg> Photo</div>
-          <div class="cat-chip" data-cat="adventure" onclick="pickCat(this)"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg> Adventure</div>
-          <div class="cat-chip" data-cat="food" onclick="pickCat(this)"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg> Food</div>
-          <div class="cat-chip" data-cat="art" onclick="pickCat(this)"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg> Art</div>
-          <div class="cat-chip" data-cat="travel" onclick="pickCat(this)"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21 4 19 4c-1 0-1.5.5-3.5 2.5L8 8 .8 6.2c-.3-.1-.5.1-.5.4l.6 1.3 2.2.8L5 11l-1 1 1 2 2-1 2 2 .8 2.2 1.3.6c.3 0 .5-.2.4-.5z"/></svg> Travel</div>
-          <div class="cat-chip" data-cat="nature" onclick="pickCat(this)"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg> Nature</div>
+          <div class="cat-chip sel" data-cat="photo" onclick="pickCat(this)">📷 Photo</div>
+          <div class="cat-chip" data-cat="adventure" onclick="pickCat(this)">⛰ Adventure</div>
+          <div class="cat-chip" data-cat="food" onclick="pickCat(this)">🍜 Food</div>
+          <div class="cat-chip" data-cat="art" onclick="pickCat(this)">🎨 Art</div>
+          <div class="cat-chip" data-cat="travel" onclick="pickCat(this)">✈ Travel</div>
+          <div class="cat-chip" data-cat="nature" onclick="pickCat(this)">🌿 Nature</div>
         </div>
       </div>
 
       <div class="prog-wrap" id="progWrap"><div class="prog-fill"></div></div>
 
       <button class="sub-btn" id="subBtn" onclick="submitStory()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg> PUBLISH TO SHELBY
+        ✦ PUBLISH TO SHELBY
       </button>
     </div>
   </div>
@@ -229,18 +231,18 @@
     </div>
   </div>
   <div class="ai-quick" id="aiQuick">
-    <button class="ai-qp" onclick="aiQuickAsk('What are some beautiful places here?')"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2m-3.5-7.5-1.5 1.5M7 7 5.5 5.5m12 12-1.5-1.5M7 17l-1.5 1.5"/></svg> Beautiful location?</button>
-    <button class="ai-qp" onclick="aiQuickAsk('What are the local specialties here?')"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg> Specialty?</button>
-    <button class="ai-qp" onclick="aiQuickAsk('What the best story recently?')"<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> Great story?</button>
-    <button class="ai-qp" onclick="aiQuickAsk('What the the beautiful painting here?')"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg> Beautiful painting?</button>
+    <button class="ai-qp" onclick="aiQuickAsk('What are some beautiful places here?')">🌅 Beautiful location?</button>
+    <button class="ai-qp" onclick="aiQuickAsk('What are the local specialties here?')">🍜 Specialty?</button>
+    <button class="ai-qp" onclick="aiQuickAsk('What the best story recently?')">✦ Great story?</button>
+    <button class="ai-qp" onclick="aiQuickAsk('What the the beautiful painting here?')">🎨 Beautiful painting?</button>
   </div>
   <div class="ai-input-row">
     <input class="ai-input" id="aiInput" placeholder="Ask about this area..."
            onkeydown="if(event.key==='Enter')aiSend()"/>
-    <button class="ai-send" onclick="aiSend()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+    <button class="ai-send" onclick="aiSend()">➤</button>
   </div>
 </div>
-<button id="aiBtn" onclick="toggleAI()" title="AI Travel Companion"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8.01" y2="16"/><line x1="16" y1="16" x2="16.01" y2="16"/></svg> AI</button>
+<button id="aiBtn" onclick="toggleAI()" title="AI Travel Companion">✦ AI</button>
 
 <script>
   // Buffer polyfill — phải chạy TRƯỚC khi bất kỳ SDK nào load
