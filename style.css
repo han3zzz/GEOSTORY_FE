@@ -1364,7 +1364,7 @@ textarea.fi {
 }
 
 /* ── SCAN LINE ── */
-#scan {
+/* #scan {
   position: fixed;
   top: 56px;
   left: 0;
@@ -1387,7 +1387,7 @@ textarea.fi {
   to {
     top: 100vh;
   }
-}
+} */
 
 /* ── RESPONSIVE ── */
 @media (max-width: 600px) {
