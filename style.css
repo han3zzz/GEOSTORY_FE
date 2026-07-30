@@ -1116,7 +1116,7 @@ textarea.fi {
   gap: 2px;
   pointer-events: all;
   cursor: pointer;
-  filter: drop-shadow(0 0 6px rgba(255,215,0,0.7));
+  filter: drop-shadow(0 0 6px rgba(77, 255, 180, 0.7));
 }
 .vn-island-flag {
   font-size: 1rem;
@@ -1127,9 +1127,9 @@ textarea.fi {
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.48rem;
   font-weight: 600;
-  color: #ffd700;
+  color: var(--accent);
   background: rgba(5, 8, 16, 0.82);
-  border: 1px solid rgba(255,215,0,0.45);
+  border: 1px solid rgba(77, 255, 180, 0.45);
   border-radius: 3px;
   padding: 1px 4px;
   white-space: nowrap;
@@ -1137,8 +1137,8 @@ textarea.fi {
   backdrop-filter: blur(4px);
 }
 @keyframes islandPulse {
-  0%, 100% { filter: drop-shadow(0 0 4px rgba(255,215,0,0.6)); }
-  50%       { filter: drop-shadow(0 0 10px rgba(255,215,0,1)); }
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(77, 255, 180, 0.6)); }
+  50%       { filter: drop-shadow(0 0 10px rgba(77, 255, 180, 1)); }
 }
 
 /* ── MAP MARKERS ── */
