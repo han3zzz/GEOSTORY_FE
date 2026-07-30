@@ -22,15 +22,6 @@ app.set("trust proxy", 1);
 app.use(cors());
 app.use(express.json({ limit: "5mb" }));
 
-const limiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 20,
-  handler: (_req, res) => {
-    res.status(429).json({ error: "Too many requests, chill bro 😅" });
-  },
-});
-app.use("/api/stories", limiter);
-
 const aiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 15,
@@ -319,11 +310,19 @@ app.post("/api/stories/:id/like", async (req, res) => {
     else            likedBy.push(wallet);
 
     likesCache.set(storyId, [...likedBy]);
-    res.json({ success: true, action, count: likedBy.length, likedBy });
 
-    persistLikes(storyId, likedBy).catch((err: unknown) =>
-      console.error("[likes] background persist failed:", err)
-    );
+    try {
+      await persistLikes(storyId, likedBy);
+    } catch (persistErr: unknown) {
+      // Rollback in-memory cache so it doesn't drift from what's actually on Shelby.
+      console.error("[likes] persist failed:", persistErr);
+      if (idx !== -1) likedBy.push(wallet);
+      else            likedBy.splice(likedBy.indexOf(wallet), 1);
+      likesCache.set(storyId, [...likedBy]);
+      return res.status(502).json({ error: "Could not save like to Shelby, please retry" });
+    }
+
+    res.json({ success: true, action, count: likedBy.length, likedBy });
 
   } catch (err) {
     console.error("[POST /api/stories/:id/like]", err);
@@ -416,11 +415,18 @@ app.post("/api/stories/:id/comments", async (req, res) => {
     };
     comments.push(comment);
     commentsCache.set(storyId, [...comments]);
-    res.json({ success: true, comment, count: comments.length });
 
-    persistComments(storyId, comments).catch((err: unknown) =>
-      console.error("[comments] persist failed:", err)
-    );
+    try {
+      await persistComments(storyId, comments);
+    } catch (persistErr: unknown) {
+      // Rollback in-memory cache so it doesn't drift from what's actually on Shelby.
+      console.error("[comments] persist failed:", persistErr);
+      comments.pop();
+      commentsCache.set(storyId, [...comments]);
+      return res.status(502).json({ error: "Could not save comment to Shelby, please retry" });
+    }
+
+    res.json({ success: true, comment, count: comments.length });
   } catch (err) {
     console.error("[POST /api/stories/:id/comments]", err);
     res.status(500).json({ error: "Server error" });
