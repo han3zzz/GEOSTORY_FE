@@ -304,8 +304,8 @@ function _drawGlobe(): void {
    VIETNAM ISLANDS
 ════════════════════════════════════════ */
 const VN_ISLANDS = [
-  { name: "Hoang Sa", lat: 16.50, lng: 111.90, note: "Hoang Sa Islands(Viet Nam)" },
-  { name: "Truong Sa", lat: 10.00, lng: 114.50, note: "Truong Sa Islands(Viet Nam)" },
+  { name: "Hoang Sa", lat: 16.50, lng: 111.90, note: "Hoang Sa Islands" },
+  { name: "Truong Sa", lat: 10.00, lng: 114.50, note: "Truong Sa Islands" },
 ];
 
 function addVietnamIslandMarkers(): void {
@@ -323,7 +323,7 @@ function addVietnamIslandMarkers(): void {
       .addTo(map)
       .bindPopup(`
         <div style="font-family:'IBM Plex Mono',monospace;padding:4px 2px">
-          <div style="color:#4dffb4;font-size:0.75rem;font-weight:600">🇻🇳 ${island.note}</div>
+          <div style="color:#4dffb4;font-size:0.75rem;font-weight:600">VIE ${island.note}</div>
           <div style="color:#5a6a8a;font-size:0.62rem;margin-top:4px">${island.lat}°N, ${island.lng}°E</div>
         </div>`, { maxWidth: 240 });
   });
