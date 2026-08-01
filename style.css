@@ -1569,10 +1569,12 @@ textarea.fi {
      shown together in one place instead of squeezed as icon-only buttons.
      Only the wallet pill (address + tier badge) stays in the topbar. */
   #topbar {
+    grid-template-columns: auto 1fr;
     padding: 0 10px;
     gap: 6px;
   }
   .topbar-actions {
+    grid-column: 2;
     gap: 5px;
   }
   #pricingBtn,
@@ -1589,7 +1591,6 @@ textarea.fi {
   }
   #walletBtn.connected {
     padding: 7px 9px;
-    margin-left: 300px;
   }
   #walletBtn.connected .topbar-tier-badge {
     padding-left: 5px;
