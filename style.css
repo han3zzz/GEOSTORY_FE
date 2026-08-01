@@ -18,6 +18,25 @@
   --glow-o: 0 0 30px rgba(255, 107, 53, 0.2);
 }
 
+/* ── Light theme overrides — toggled via [data-theme="light"] on <html> ── */
+[data-theme="light"] {
+  --bg: #f3f5fa;
+  --surface: #ffffff;
+  --surface2: #eef1f8;
+  --surface3: #e2e7f4;
+  --border: rgba(20, 30, 65, 0.09);
+  --border2: rgba(20, 30, 65, 0.16);
+  --accent: #0aa876;
+  --accent2: #e0562a;
+  --accent3: #6a53e6;
+  --accent4: #c99416;
+  --text: #121a30;
+  --muted: #67728e;
+  --muted2: #8b96b3;
+  --glow-g: 0 0 20px rgba(10, 168, 118, 0.18);
+  --glow-o: 0 0 20px rgba(224, 86, 42, 0.18);
+}
+
 *,
 *::before,
 *::after {
@@ -59,7 +78,7 @@ body {
   background: var(--bg);
 }
 
-/* Làm sáng tile map ~40% mà không ảnh hưởng markers/popup */
+/* Brighten map tiles ~40% without affecting markers/popups */
 #map .leaflet-tile-pane {
   filter: brightness(1.4) contrast(0.92);
 }
@@ -176,11 +195,12 @@ body {
   background: rgba(5, 8, 16, 0.88);
   backdrop-filter: blur(20px) saturate(1.5);
   border-bottom: 1px solid var(--border);
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   padding: 0 20px;
   z-index: 1000;
+  gap: 12px;
 }
 
 .logo {
@@ -188,6 +208,7 @@ body {
   align-items: center;
   gap: 10px;
   text-decoration: none;
+  justify-self: start;
 }
 .logo-icon {
   width: 30px;
@@ -225,6 +246,15 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  justify-self: center;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: end;
+  min-width: 0;
 }
 
 .stat-chip {
@@ -286,10 +316,13 @@ body {
   background: var(--accent);
   border: none;
   cursor: pointer;
-  padding: 8px 18px;
+  padding: 8px 14px;
   border-radius: var(--r);
   transition: all 0.2s;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 }
 #walletBtn:hover {
   background: #6fffc4;
@@ -300,9 +333,16 @@ body {
   background: transparent;
   color: var(--accent);
   border: 1px solid rgba(77, 255, 180, 0.35);
+  padding: 7px 13px;
 }
 #walletBtn.connected:hover {
   background: rgba(77, 255, 180, 0.08);
+}
+/* Tier badge riding inside the wallet address pill — a thin divider keeps
+   it visually separate from the address without needing its own chip. */
+#walletBtn.connected .topbar-tier-badge {
+  padding-left: 7px;
+  border-left: 1px solid rgba(77, 255, 180, 0.25);
 }
 
 /* ── SIDEBAR ── */
@@ -371,7 +411,7 @@ body {
   gap: 8px;
 }
 
-/* Đảm bảo mỗi card không bị collapse hay overlap */
+/* Ensure each card doesn't collapse or overlap */
 .scard {
   flex-shrink: 0;
 }
@@ -393,14 +433,16 @@ body {
 }
 .scard-img {
   width: 100%;
-  height: 88px;
-  object-fit: cover;
+  height: auto;
+  max-height: 220px;
+  min-height: 60px;
+  object-fit: contain;
   display: block;
   background: var(--surface2);
 }
 .scard-img-placeholder {
   width: 100%;
-  height: 88px;
+  height: 140px;
   background: var(--surface2);
   display: flex;
   align-items: center;
@@ -576,6 +618,35 @@ body {
   box-shadow: 0 6px 32px rgba(77, 255, 180, 0.5);
 }
 
+/* ── Theme toggle ── */
+#themeToggleBtn {
+  position: fixed;
+  bottom: 28px;
+  right: 86px;
+  z-index: 900;
+  width: 40px;
+  height: 40px;
+  background: rgba(12, 17, 32, 0.92);
+  border: 1px solid var(--border2);
+  cursor: pointer;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: var(--text);
+  transition: all 0.2s;
+}
+#themeToggleBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+[data-theme="light"] #themeToggleBtn {
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(20, 30, 65, 0.12);
+}
+
 /* ── MAP TOOLS ── */
 #mapTools {
   position: fixed;
@@ -688,7 +759,7 @@ body {
 /* ── PROFILE CARD ── */
 #profileCard {
   position: fixed;
-  bottom: 90px;
+  bottom: 130px;
   right: 20px;
   background: rgba(12, 17, 32, 0.96);
   border: 1px solid var(--border);
@@ -747,6 +818,39 @@ body {
 .prof-disconnect:hover {
   border-color: var(--accent2);
   color: var(--accent2);
+}
+
+/* Ads / Pricing quick actions — live inside the profile card so mobile
+   users still reach them once the topbar buttons are hidden for space.
+   Desktop already has both as dedicated topbar buttons, so this stays
+   hidden there and only appears in the mobile media query below. */
+.prof-mobile-actions {
+  display: none;
+  gap: 8px;
+  margin-top: 4px;
+}
+.prof-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 9px 6px;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.prof-action-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(77, 255, 180, 0.06);
 }
 
 /* ── MODAL ── */
@@ -846,6 +950,12 @@ body {
   text-transform: uppercase;
   color: var(--muted);
 }
+.fl-hint {
+  text-transform: none;
+  letter-spacing: 0.02em;
+  color: var(--muted2);
+  font-size: 0.58rem;
+}
 .fi {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -895,21 +1005,47 @@ textarea.fi {
 .img-drop-icon {
   font-size: 1.6rem;
   margin-bottom: 6px;
+  transition: opacity 0.15s;
 }
 .img-drop-hint {
   font-size: 0.75rem;
   color: var(--muted);
+  transition: opacity 0.15s;
 }
 .img-drop-hint span {
   color: var(--accent);
 }
+/* Once an image is picked, fade the drop icon/hint out of the way — the
+   preview below is the focus, not the empty-state prompt. */
+.img-drop.has-image {
+  padding-bottom: 14px;
+  cursor: default;
+}
+.img-drop.has-image .img-drop-icon,
+.img-drop.has-image .img-drop-hint {
+  display: none;
+}
+.img-drop.has-image input {
+  inset: auto;
+  top: 0; left: 0; right: 0;
+  height: 34px;
+  z-index: 2;
+}
+
+/* Preview: always shows the WHOLE photo, never stretched or cropped.
+   object-fit:contain letterboxes inside a fixed-ratio frame, and the
+   frame's own background fills the empty bars so it never looks broken. */
 .img-preview {
   width: 100%;
+  height: auto;
+  max-height: 260px;
+  min-height: 100px;
   border-radius: var(--r);
   margin-top: 10px;
   display: none;
-  max-height: 180px;
-  object-fit: cover;
+  object-fit: contain;
+  background: var(--surface2);
+  border: 1px solid var(--border);
 }
 
 /* location picker */
@@ -1051,6 +1187,35 @@ textarea.fi {
   transform: none;
 }
 
+.mod-status {
+  display: none;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: var(--r);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  text-align: center;
+  line-height: 1.5;
+}
+.mod-status.show { display: block; }
+.mod-status--checking {
+  background: rgba(124, 106, 255, 0.1);
+  border: 1px solid rgba(124, 106, 255, 0.3);
+  color: var(--accent3);
+}
+.mod-status--checking::before { content: "🤖 "; }
+.mod-status--rejected {
+  background: rgba(255, 107, 53, 0.1);
+  border: 1px solid rgba(255, 107, 53, 0.35);
+  color: var(--accent2);
+}
+.mod-status--ok {
+  background: rgba(77, 255, 180, 0.1);
+  border: 1px solid rgba(77, 255, 180, 0.3);
+  color: var(--accent);
+}
+
 /* wallet options */
 .wallet-opt {
   background: var(--bg);
@@ -1108,7 +1273,7 @@ textarea.fi {
   margin-top: 2px;
 }
 
-/* ── QUẦN ĐẢO HOÀNG SA & TRƯỜNG SA ── */
+/* ── HOANG SA & TRUONG SA ISLANDS ── */
 .vn-island-marker {
   display: flex;
   flex-direction: column;
@@ -1194,8 +1359,11 @@ textarea.fi {
 
 .pop-img {
   width: 100%;
-  height: 120px;
-  object-fit: cover;
+  height: auto;
+  max-height: 220px;
+  min-height: 60px;
+  object-fit: contain;
+  background: var(--surface2);
   display: block;
 }
 .pop-img-placeholder {
@@ -1394,6 +1562,59 @@ textarea.fi {
   .topbar-center {
     display: none;
   }
+
+  /* ── TOPBAR ACTIONS ──
+     Narrow screens don't have room for four controls: Ads, Pricing and the
+     tier readout all move into profileCard (opened via the 👤 map tool),
+     shown together in one place instead of squeezed as icon-only buttons.
+     Only the wallet pill (address + tier badge) stays in the topbar. */
+  #topbar {
+    padding: 0 10px;
+    gap: 6px;
+  }
+  .topbar-actions {
+    gap: 5px;
+  }
+  #pricingBtn,
+  #adBtn {
+    display: none;
+  }
+  .topbar-tier-badge .tier-badge {
+    font-size: 0.48rem;
+    padding: 2px 5px;
+  }
+  #walletBtn {
+    font-size: 0.58rem;
+    padding: 8px 10px;
+  }
+  #walletBtn.connected {
+    padding: 7px 9px;
+    margin-left: 300px;
+  }
+  #walletBtn.connected .topbar-tier-badge {
+    padding-left: 5px;
+  }
+
+  /* ── PROFILE CARD ──
+     Wider on mobile so the address, tier badge, and the Ads/Pricing row
+     that moved in from the topbar all sit comfortably. */
+  #profileCard {
+    width: min(280px, calc(100vw - 24px));
+    right: 12px;
+    bottom: 92px;
+  }
+  .prof-mobile-actions {
+    display: flex;
+  }
+
+  /* ── ADS TOGGLE ROW (profile card, Premium only) ──
+     Stack label above the switch on very narrow cards instead of squeezing. */
+  .ads-toggle-row {
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 0.62rem;
+  }
+
   #sidebar {
     width: 100%;
   }
@@ -1443,7 +1664,7 @@ textarea.fi {
     align-items: flex-end;
   }
 
-  /* Filter bar: scroll ngang thay vì tràn */
+  /* Filter bar: horizontal scroll instead of overflow */
   #filterBar {
     left: 12px;
     right: 68px;
@@ -1459,12 +1680,21 @@ textarea.fi {
     display: none;
   }
 
-  /* FAB: căn chỉnh với filter bar */
+  /* FAB: aligned with filter bar */
   #fab {
     bottom: 12px;
     right: 12px;
     width: 46px;
     height: 46px;
+  }
+
+  /* Theme toggle: sits left of the FAB at the same height on mobile */
+  #themeToggleBtn {
+    bottom: 12px;
+    right: 66px;
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
   }
 }
 /* ── POPUP — comment button ── */
@@ -1586,10 +1816,10 @@ textarea.fi {
 .cmt-send:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ══════════════════════════════════════════════════════
-   GEO-NOTIFY SYSTEM — Thông báo nâng cao
+   GEO-NOTIFY SYSTEM — Advanced notifications
 ══════════════════════════════════════════════════════ */
 
-/* Container xếp chồng nhiều thông báo */
+/* Container stacking multiple notifications */
 #notifyStack {
   position: fixed;
   bottom: 96px;
@@ -1603,7 +1833,7 @@ textarea.fi {
   width: calc(100vw - 40px);
 }
 
-/* Thẻ thông báo */
+/* Notification card */
 .nfy {
   pointer-events: all;
   display: flex;
@@ -1640,7 +1870,7 @@ textarea.fi {
   box-shadow: 0 16px 50px rgba(0,0,0,0.65);
 }
 
-/* Dải màu bên trái theo loại */
+/* Left color strip by type */
 .nfy::before {
   content: '';
   position: absolute;
@@ -1654,7 +1884,7 @@ textarea.fi {
 .nfy-info::before    { background: var(--accent3);  box-shadow: 0 0 14px rgba(124,106,255,0.55); }
 .nfy-chain::before   { background: var(--accent2);  box-shadow: 0 0 14px rgba(255,107,53,0.55); }
 
-/* Thanh tiến trình auto-dismiss */
+/* Auto-dismiss progress bar */
 .nfy-progress {
   position: absolute;
   bottom: 0; left: 0;
@@ -1673,7 +1903,7 @@ textarea.fi {
   to   { width: 0%; }
 }
 
-/* Icon viên tròn */
+/* Round icon */
 .nfy-icon {
   width: 32px; height: 32px;
   border-radius: 9px;
@@ -1687,7 +1917,7 @@ textarea.fi {
 .nfy-info    .nfy-icon { background: rgba(124,106,255,0.12); color: var(--accent3); }
 .nfy-chain   .nfy-icon { background: rgba(255,107,53,0.12);  color: var(--accent2); }
 
-/* Nội dung */
+/* Content */
 .nfy-body { flex: 1; min-width: 0; }
 .nfy-title {
   font-family: "IBM Plex Mono", monospace;
@@ -1704,7 +1934,7 @@ textarea.fi {
   line-height: 1.4;
 }
 
-/* Nút đóng */
+/* Close button */
 .nfy-close {
   width: 20px; height: 20px;
   border-radius: 5px;
@@ -1718,13 +1948,13 @@ textarea.fi {
 }
 .nfy-close:hover { background: var(--surface3); color: var(--text); }
 
-/* Hiệu ứng glow nhẹ khi notify success chain */
+/* Subtle glow effect for chain-success notifications */
 .nfy-chain {
   box-shadow: 0 12px 40px rgba(0,0,0,0.55), 0 0 20px rgba(255,107,53,0.08);
 }
 
 /* ══════════════════════════════════════════════════════
-   GEO-SEARCH — Tìm kiếm địa chỉ
+   GEO-SEARCH — Address search
 ══════════════════════════════════════════════════════ */
 #geoSearchWrap {
   position: fixed;
@@ -1802,7 +2032,7 @@ textarea.fi {
 }
 #geoSearchBox:focus-within .geo-kbd { opacity: 0; pointer-events: none; }
 
-/* Dropdown kết quả */
+/* Results dropdown */
 #geoResults {
   pointer-events: all;
   position: absolute;
@@ -1869,7 +2099,7 @@ textarea.fi {
   text-align: right;
 }
 
-/* Trạng thái loading / empty */
+/* Loading / empty state */
 .geo-status {
   padding: 18px 14px;
   text-align: center;
@@ -1890,7 +2120,7 @@ textarea.fi {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Viên đánh dấu đặc biệt khi fly to */
+/* Special marker highlight on fly-to */
 .geo-fly-marker {
   animation: geoMarkerPop 0.5s cubic-bezier(0.16,1,0.3,1);
 }
@@ -2182,7 +2412,7 @@ textarea.fi {
   30% { transform: translateY(-5px); }
 }
 
-/* Story chips bên dưới reply AI */
+/* Story chips below AI reply */
 .ai-story-chips {
   display: flex;
   flex-direction: column;
@@ -2232,6 +2462,23 @@ textarea.fi {
   flex-shrink: 0;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+/* Sponsored suggestion — reuses the ad-tag accent (orange) so it reads as
+   distinct from the organic green story chips. */
+.ai-story-chip--ad {
+  background: rgba(255, 107, 53, 0.07);
+  border-color: rgba(255, 107, 53, 0.25);
+}
+.ai-story-chip--ad:hover {
+  background: rgba(255, 107, 53, 0.14);
+  border-color: rgba(255, 107, 53, 0.5);
+}
+.ai-story-chip--ad .ai-chip-arrow { color: var(--accent2); }
+.ai-chip-badge--sponsored {
+  color: var(--accent2);
+  background: rgba(255, 107, 53, 0.1);
+  border-color: rgba(255, 107, 53, 0.3);
 }
 
 .ai-quick {
@@ -2294,3 +2541,659 @@ textarea.fi {
   justify-content: center;
 }
 .ai-send:hover { transform: scale(1.1); }
+
+/* ════════════════════════════════════════
+   PRICING BUTTON (topbar)
+════════════════════════════════════════ */
+#pricingBtn {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 8px 14px;
+  border-radius: var(--r);
+  background: linear-gradient(135deg, rgba(124,106,255,0.16), rgba(255,206,92,0.12));
+  border: 1px solid rgba(124,106,255,0.35);
+  color: var(--accent4);
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-right: 8px;
+}
+#pricingBtn:hover {
+  border-color: var(--accent4);
+  background: linear-gradient(135deg, rgba(124,106,255,0.28), rgba(255,206,92,0.2));
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(124,106,255,0.25);
+}
+
+/* ════════════════════════════════════════
+   TIER BADGES — used in feed card, marker popup, comments, profile
+════════════════════════════════════════ */
+.tier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+  border-radius: 20px;
+  line-height: 1.6;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.prof-tier-expiry {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.62rem;
+  color: var(--muted);
+  text-align: center;
+  margin-top: 4px;
+  letter-spacing: 0.02em;
+}
+.prof-tier-expiry.expiry-soon { color: var(--accent2); }
+
+.price-expiry {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.64rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.tier-badge--pro {
+  color: #06140e;
+  background: linear-gradient(135deg, #4dffb4, #37d69a);
+  box-shadow: 0 0 10px rgba(77,255,180,0.45);
+}
+
+.tier-badge--premium {
+  color: #1a1030;
+  background: linear-gradient(135deg, #ffce5c, #c9a2ff 55%, #7c6aff);
+  background-size: 200% 200%;
+  box-shadow: 0 0 14px rgba(124,106,255,0.55), 0 0 8px rgba(255,206,92,0.4);
+  animation: premiumShimmer 3s ease-in-out infinite;
+}
+@keyframes premiumShimmer {
+  0%, 100% { background-position: 0% 50%; filter: brightness(1); }
+  50%      { background-position: 100% 50%; filter: brightness(1.15); }
+}
+
+/* Profile card tier badge */
+.prof-tier-badge {
+  display: flex;
+  justify-content: center;
+  margin: 6px 0 2px;
+  min-height: 18px;
+}
+
+.prof-upgrade-btn {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: var(--r);
+  border: 1px solid rgba(255,206,92,0.4);
+  background: linear-gradient(135deg, rgba(124,106,255,0.18), rgba(255,206,92,0.14));
+  color: var(--accent4);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.prof-upgrade-btn:hover {
+  border-color: var(--accent4);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(255,206,92,0.2);
+}
+
+/* ── Ads visibility toggle (Premium only) ── */
+.ads-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding: 9px 12px;
+  border-radius: var(--r);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.66rem;
+  color: var(--text);
+}
+.ads-switch {
+  position: relative;
+  display: inline-block;
+  width: 34px;
+  height: 19px;
+  flex-shrink: 0;
+}
+.ads-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.ads-switch-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  transition: 0.2s;
+}
+.ads-switch-slider::before {
+  content: "";
+  position: absolute;
+  height: 13px;
+  width: 13px;
+  left: 3px;
+  top: 2px;
+  background: var(--muted);
+  border-radius: 50%;
+  transition: 0.2s;
+}
+.ads-switch input:checked + .ads-switch-slider {
+  background: rgba(77,255,180,0.25);
+  border-color: var(--accent);
+}
+.ads-switch input:checked + .ads-switch-slider::before {
+  transform: translateX(15px);
+  background: var(--accent);
+}
+
+/* ════════════════════════════════════════
+   PRICING MODAL — full-screen, 3-plan showcase
+════════════════════════════════════════ */
+.overlay--pricing {
+  background: radial-gradient(ellipse at 50% 0%, rgba(124,106,255,0.12), rgba(0,0,0,0.9) 60%);
+  backdrop-filter: blur(10px);
+}
+
+.modal--pricing {
+  width: 96%;
+  max-width: 1080px;
+  max-height: 94vh;
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  box-shadow: 0 40px 120px rgba(0,0,0,0.7), 0 0 0 1px rgba(124,106,255,0.08);
+}
+
+.pricing-head {
+  padding: 26px 30px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  position: sticky;
+  top: 0;
+  background: linear-gradient(180deg, var(--surface) 70%, transparent);
+  z-index: 1;
+  border-bottom: 1px solid var(--border);
+}
+.pricing-title {
+  font-family: "Unbounded", sans-serif;
+  font-size: 1.35rem;
+  font-weight: 800;
+  background: linear-gradient(90deg, var(--text), var(--accent4));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.pricing-sub {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.64rem;
+  color: var(--accent);
+  margin-top: 5px;
+  letter-spacing: 0.04em;
+}
+
+.pricing-body {
+  padding: 28px 30px 32px;
+}
+
+.price-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+@media (max-width: 860px) {
+  .price-grid { grid-template-columns: 1fr; }
+}
+
+.price-card {
+  position: relative;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r2);
+  padding: 26px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: transform 0.25s cubic-bezier(0.16,1,0.3,1), box-shadow 0.25s, border-color 0.25s;
+}
+.price-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(255,255,255,0.2);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+}
+
+.price-card--highlight {
+  border: 1px solid rgba(124,106,255,0.55);
+  background: linear-gradient(180deg, rgba(124,106,255,0.1), var(--surface2) 40%);
+  box-shadow: 0 0 0 1px rgba(124,106,255,0.2), 0 20px 60px rgba(124,106,255,0.15);
+}
+.price-card--highlight:hover {
+  box-shadow: 0 0 0 1px rgba(124,106,255,0.35), 0 26px 70px rgba(124,106,255,0.28);
+}
+
+.price-card--current {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(77,255,180,0.3), 0 0 30px rgba(77,255,180,0.12);
+}
+
+.price-ribbon {
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #ffce5c, #7c6aff);
+  color: #1a1030;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.56rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 4px 14px;
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 4px 14px rgba(124,106,255,0.4);
+}
+
+.price-icon {
+  font-size: 2.1rem;
+  margin-bottom: 6px;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.4));
+}
+.price-name {
+  font-family: "Unbounded", sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.price-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+.price-num {
+  font-family: "Unbounded", sans-serif;
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+}
+.price-unit {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.62rem;
+  color: var(--muted);
+}
+
+.price-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  text-align: left;
+}
+.price-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.8rem;
+  color: var(--text);
+  line-height: 1.35;
+}
+.price-check {
+  color: var(--accent);
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.price-cta {
+  width: 100%;
+  margin-top: auto;
+  padding: 12px;
+  border-radius: var(--r);
+  border: 1px solid var(--border2);
+  background: var(--surface3);
+  color: var(--text);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.price-card--highlight .price-cta {
+  background: linear-gradient(135deg, #7c6aff, #ffce5c);
+  color: #14102a;
+  border: none;
+  box-shadow: 0 8px 24px rgba(124,106,255,0.35);
+}
+.price-card--highlight .price-cta:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+.price-card:not(.price-card--highlight) .price-cta:not(:disabled):hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(77,255,180,0.08);
+}
+.price-cta:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.price-cta--current {
+  background: rgba(77,255,180,0.14) !important;
+  color: var(--accent) !important;
+  border: 1px solid rgba(77,255,180,0.4) !important;
+  opacity: 1 !important;
+}
+
+.pricing-foot {
+  margin-top: 24px;
+  text-align: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.62rem;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+/* Topbar persistent tier badge */
+.topbar-tier-badge {
+  display: inline-flex;
+  align-items: center;
+}
+.topbar-tier-badge:empty { display: none; }
+
+.tier-badge--free {
+  color: var(--muted);
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  box-shadow: none;
+}
+
+/* ════════════════════════════════════════
+   ADVERTISE — topbar button, map pin, feed tag, price box
+════════════════════════════════════════ */
+#adBtn {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 8px 14px;
+  border-radius: var(--r);
+  background: rgba(255,107,53,0.1);
+  border: 1px solid rgba(255,107,53,0.35);
+  color: var(--accent2);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+#adBtn:hover {
+  border-color: var(--accent2);
+  background: rgba(255,107,53,0.18);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(255,107,53,0.2);
+}
+
+/* Sponsored map pin */
+.ad-pin-wrap {
+  position: relative;
+  width: 40px;
+  height: 46px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: ad-pin-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Soft pulsing halo behind the pin so sponsored spots catch the eye without
+   being obnoxious — loops continuously while the pin is on the map. */
+.ad-pin-pulse {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  width: 34px;
+  height: 34px;
+  margin-left: -17px;
+  border-radius: 50%;
+  background: rgba(255,107,53,0.45);
+  animation: ad-pin-pulse 1.8s ease-out infinite;
+}
+
+.ad-pin {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--accent2), #ff8a5c);
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(45deg);
+  box-shadow: 0 0 14px rgba(255,107,53,0.6), 0 4px 10px rgba(0,0,0,0.4);
+  border: 2px solid rgba(255,255,255,0.35);
+}
+/* Counter-rotate the icon so the emoji sits upright — previously it rotated
+   sideways along with the teardrop pin shape, which looked broken. */
+.ad-pin-icon {
+  display: inline-block;
+  font-size: 1.1rem;
+  transform: rotate(-45deg);
+}
+
+@keyframes ad-pin-pop {
+  0%   { transform: scale(0.3) translateY(10px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+@keyframes ad-pin-pulse {
+  0%   { transform: scale(0.7); opacity: 0.7; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+
+/* "SPONSORED" tag — used in map popup and feed card */
+.ad-tag {
+  display: inline-block;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.54rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--accent2);
+  background: rgba(255,107,53,0.14);
+  border: 1px solid rgba(255,107,53,0.4);
+  padding: 2px 7px;
+  border-radius: 20px;
+}
+
+/* Sponsored feed card — same shape as .scard, distinct left accent */
+.scard--ad {
+  border-left: 3px solid var(--accent2);
+  background: linear-gradient(90deg, rgba(255,107,53,0.06), transparent 40%);
+}
+
+/* Price summary box inside the Advertise modal */
+.ad-price-box {
+  margin: 4px 0 18px;
+  padding: 16px;
+  border-radius: var(--r);
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  text-align: center;
+}
+.ad-price-label {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.6rem;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+.ad-price-total {
+  font-family: "Unbounded", sans-serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--accent2);
+}
+.ad-price-sub {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.6rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* ════════════════════════════════════════
+   ADVERTISE MODAL — tabs, custom days, benefits, campaign management
+════════════════════════════════════════ */
+.ad-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+}
+.ad-tab-btn {
+  flex: 1;
+  padding: 11px 8px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.ad-tab-btn:hover { color: var(--text); }
+.ad-tab-btn.sel {
+  color: var(--accent2);
+  border-bottom-color: var(--accent2);
+}
+
+.ad-days-custom {
+  width: 80px !important;
+  margin-left: 4px;
+  padding: 8px 10px !important;
+}
+
+.ad-benefits {
+  margin-top: 4px;
+  padding: 16px;
+  border-radius: var(--r);
+  background: linear-gradient(135deg, rgba(255,107,53,0.06), rgba(255,206,92,0.04));
+  border: 1px solid rgba(255,107,53,0.2);
+}
+.ad-benefits-title {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--accent2);
+  margin-bottom: 10px;
+}
+.ad-benefits-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ad-benefits-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.76rem;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+/* My Campaigns list */
+.ad-my-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ad-empty {
+  text-align: center;
+  padding: 30px 10px;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+}
+.ad-empty-connect-btn {
+  display: block;
+  margin: 14px auto 0;
+  padding: 8px 16px;
+  border-radius: var(--r);
+  background: rgba(255,107,53,0.14);
+  border: 1px solid rgba(255,107,53,0.4);
+  color: var(--accent2);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.ad-empty-connect-btn:hover {
+  background: rgba(255,107,53,0.24);
+  transform: translateY(-1px);
+}
+.ad-my-card {
+  padding: 14px 16px;
+  border-radius: var(--r);
+  background: var(--surface2);
+  border: 1px solid rgba(255,107,53,0.25);
+  border-left: 3px solid var(--accent2);
+}
+.ad-my-card--expired {
+  border-color: var(--border2);
+  border-left-color: var(--muted);
+  opacity: 0.65;
+}
+.ad-my-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.ad-my-title {
+  font-family: "DM Sans", sans-serif;
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ad-my-status {
+  flex-shrink: 0;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.6rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ad-my-status--active  { color: var(--accent); }
+.ad-my-status--expired { color: var(--muted); }
+.ad-my-meta {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.62rem;
+  color: var(--muted);
+}
