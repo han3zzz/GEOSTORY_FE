@@ -36,7 +36,14 @@
     <div class="stat-chip">Stories <b id="storyCount">0</b></div>
     <div class="protocol-badge"><div class="protocol-dot"></div>SHELBY TESTNET</div>
   </div>
-  <button id="walletBtn" onclick="renderWalletOptions(); openModal('walletModal')">CONNECT WALLET</button>
+  <div class="topbar-actions">
+    <button id="adBtn" onclick="openAdModal()" title="Advertise on GeoStory">📢 ADS</button>
+    <button id="pricingBtn" onclick="openPricingModal()" title="Pricing Plans">✦ PRICING</button>
+    <button id="walletBtn" onclick="renderWalletOptions(); openModal('walletModal')">
+      <span id="walletBtnLabel">CONNECT WALLET</span>
+      <span id="topbarTierBadge" class="topbar-tier-badge"></span>
+    </button>
+  </div>
 </div>
 
 <!-- Feed toggle -->
@@ -46,7 +53,7 @@
 <div id="mapTools">
   <button class="maptool" id="heatBtn" onclick="toggleHeat(this)" title="Heatmap">🌡</button>
   <button class="maptool" id="locBtn" onclick="locateMe()" title="My Location">◎</button>
-  <button class="maptool" id="profBtn" onclick="toggleProfile()" title="Profile">◉</button>
+  <button class="maptool" id="profBtn" onclick="toggleProfile()" title="Profile">👤</button>
 </div>
 
 <!-- Sidebar -->
@@ -73,9 +80,14 @@
 <!-- FAB -->
 <button id="fab" onclick="startPost()" title="Post Story">✦</button>
 
+<!-- Theme toggle -->
+<!-- <button id="themeToggleBtn" onclick="toggleTheme()" title="Switch light / dark theme">🌙</button> -->
+
 <!-- Profile card -->
 <div id="profileCard">
   <div class="prof-addr" id="profAddr">—</div>
+  <div id="profTierBadge" class="prof-tier-badge"></div>
+  <div class="prof-tier-expiry" id="profTierExpiry"></div>
   <div class="prof-grid">
     <div class="prof-stat">
       <div class="prof-num" id="profStories">0</div>
@@ -86,6 +98,18 @@
       <div class="prof-lbl">Likes</div>
     </div>
   </div>
+  <div class="prof-mobile-actions">
+    <button class="prof-action-btn" onclick="toggleProfile();openAdModal()">📢 <span>Ads</span></button>
+    <button class="prof-action-btn" onclick="toggleProfile();openPricingModal()">✦ <span>Pricing</span></button>
+  </div>
+  <div class="ads-toggle-row" id="adsToggleRow" style="display:none">
+    <span>🔕 Hide ads</span>
+    <label class="ads-switch">
+      <input type="checkbox" id="adsToggleInput" onchange="toggleAdsVisibility(!this.checked)">
+      <span class="ads-switch-slider"></span>
+    </label>
+  </div>
+  <button class="prof-upgrade-btn" onclick="toggleProfile();openPricingModal()">✦ Upgrade plan</button>
   <button class="prof-disconnect" onclick="disconnect()">Disconnect</button>
 </div>
 
@@ -93,6 +117,25 @@
 <div id="pickBar">
   📍 Click the map to set your location
   <button class="pick-cancel" onclick="cancelPick()">Cancel</button>
+</div>
+
+<!-- ─── Pricing Modal (full-screen) ─── -->
+<div class="overlay overlay--pricing" id="pricingModal" onclick="overlayClick(event,'pricingModal')">
+  <div class="modal modal--pricing">
+    <div class="pricing-head">
+      <div>
+        <div class="pricing-title">Choose your plan</div>
+        <div class="pricing-sub">// PAY WITH APT · APTOS TESTNET</div>
+      </div>
+      <button class="modal-x" onclick="closeModal('pricingModal')">✕</button>
+    </div>
+    <div class="pricing-body">
+      <div class="price-grid" id="pricingCards"><!-- rendered by renderPricingModal() --></div>
+      <div class="pricing-foot">
+        Payments are verified directly on Aptos Testnet · Plans are valid for 30 days from activation
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ─── Wallet Modal ─── -->
@@ -106,8 +149,8 @@
       <button class="modal-x" onclick="closeModal('walletModal')">✕</button>
     </div>
     <div class="modal-body">
-      <!-- Wallet options được render động bởi renderWalletOptions() trong main.ts -->
-      <!-- Fallback nếu JS chưa load -->
+      <!-- Wallet options are rendered dynamically by renderWalletOptions() in main.ts -->
+      <!-- Fallback if JS hasn't loaded yet -->
       <div class="wallet-opt" onclick="connectWallet('Petra')">
         <div class="wallet-icon" style="background:none;padding:0;display:flex;align-items:center;justify-content:center">
           <img src="https://petra.app/favicon.ico" alt="Petra" width="32" height="32" style="border-radius:8px" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'🅿',style:'font-size:1.6rem'}))">
@@ -149,7 +192,7 @@
 
       <div class="fg">
         <label class="fl">Story Title</label>
-        <input class="fi" id="iTitle" placeholder="e.g. Sunrise over Hội An...">
+        <input class="fi" id="iTitle" placeholder="e.g. Sunrise over Hoi An...">
       </div>
 
       <div class="fg">
@@ -205,14 +248,135 @@
       <div class="prog-wrap" id="progWrap"><div class="prog-fill"></div></div>
 
       <button class="sub-btn" id="subBtn" onclick="submitStory()">
-        ✦ PUBLISH TO SHELBY
+        ✦ PUBLISH TO GEOSTORY
       </button>
+      <div class="mod-status" id="storyModStatus"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Advertise Modal ─── -->
+<div class="overlay" id="adModal" onclick="overlayClick(event,'adModal')">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">📢 Advertise on GeoStory</div>
+        <div class="modal-sub">// SPONSORED PIN & FEED · PAID IN APT</div>
+      </div>
+      <button class="modal-x" onclick="closeModal('adModal')">✕</button>
+    </div>
+
+    <div class="ad-tabs">
+      <button class="ad-tab-btn sel" id="adTab-create" onclick="switchAdTab('create')">✦ Create Campaign</button>
+      <button class="ad-tab-btn" id="adTab-manage" onclick="switchAdTab('manage')">📋 My Campaigns</button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- ── Create tab ── -->
+      <div id="adPane-create">
+
+        <div class="fg">
+          <label class="fl">Campaign Title</label>
+          <input class="fi" id="adTitle" placeholder="e.g. 20% off at our new cafe...">
+        </div>
+
+        <div class="fg">
+          <label class="fl">Description</label>
+          <textarea class="fi" id="adDesc" placeholder="Tell people why they should check this out..."></textarea>
+        </div>
+
+        <div class="fg">
+          <label class="fl">Image (optional)</label>
+          <div class="img-drop" id="adImgDrop">
+            <div class="img-drop-icon">📷</div>
+            <div class="img-drop-hint">Drop image or <span>click to browse</span></div>
+            <input type="file" accept="image/*" id="adImgFile" onchange="handleAdImg(event)">
+            <img id="adImgPreview" class="img-preview" alt="Preview">
+          </div>
+        </div>
+
+        <div class="fg">
+          <label class="fl">Location</label>
+          <div class="loc-btn" id="adLocBtn" onclick="startAdPick()">
+            <div>
+              <div class="loc-coords" id="adCoordsTxt">Not selected</div>
+              <div class="loc-hint">Click to pin on map</div>
+            </div>
+            <span style="color:var(--accent);font-size:1.1rem">📍</span>
+          </div>
+        </div>
+
+        <div class="fg">
+          <label class="fl">Placement</label>
+          <div class="cat-row">
+            <div class="cat-chip ad-placement-chip sel" data-placement="map" onclick="pickAdPlacement(this)">📍 Map Pin</div>
+            <div class="cat-chip ad-placement-chip" data-placement="feed" onclick="pickAdPlacement(this)">📰 Feed</div>
+            <div class="cat-chip ad-placement-chip" data-placement="combo" onclick="pickAdPlacement(this)">✦ Both</div>
+          </div>
+        </div>
+
+        <div class="fg">
+          <label class="fl">Duration</label>
+          <div class="cat-row">
+            <div class="cat-chip ad-days-chip sel" data-days="1" onclick="pickAdDays(this)">1 day</div>
+            <div class="cat-chip ad-days-chip" data-days="7" onclick="pickAdDays(this)">7 days</div>
+            <div class="cat-chip ad-days-chip" data-days="30" onclick="pickAdDays(this)">30 days</div>
+            <div class="cat-chip ad-days-chip" data-days="custom" onclick="pickAdDays(this)">Custom</div>
+            <input class="fi ad-days-custom" id="adDaysCustom" type="number" min="1" max="365"
+                   placeholder="days" style="display:none" oninput="onAdDaysCustomInput(this)">
+          </div>
+        </div>
+
+        <div class="fg" id="adRadiusGroup" style="display:none">
+          <label class="fl">Feed reach radius <span class="fl-hint">— wider reach costs more</span></label>
+          <div class="cat-row">
+            <div class="cat-chip ad-radius-chip sel" data-radius="5" onclick="pickAdRadius(this)">🎯 5 km</div>
+            <div class="cat-chip ad-radius-chip" data-radius="20" onclick="pickAdRadius(this)">📍 20 km</div>
+            <div class="cat-chip ad-radius-chip" data-radius="50" onclick="pickAdRadius(this)">🗺 50 km</div>
+            <div class="cat-chip ad-radius-chip" data-radius="100" onclick="pickAdRadius(this)">🌏 100 km</div>
+            <div class="cat-chip ad-radius-chip" data-radius="300" onclick="pickAdRadius(this)">🚀 300 km</div>
+          </div>
+          <div class="loc-hint" style="margin-top:6px">Your feed ad only shows to people currently viewing the map within this radius of your pin.</div>
+        </div>
+
+        <div class="ad-price-box">
+          <div class="ad-price-label">Total cost</div>
+          <div class="ad-price-total" id="adPriceTotal">2 APT</div>
+          <div class="ad-price-sub" id="adPriceSub">2 APT/day × 1 day</div>
+        </div>
+
+        <button class="sub-btn" id="adSubmitBtn" onclick="submitAd()">
+          📢 PAY & LAUNCH CAMPAIGN
+        </button>
+        <div class="mod-status" id="adModStatus"></div>
+
+        <div class="ad-benefits">
+          <div class="ad-benefits-title">What you get</div>
+          <ul class="ad-benefits-list">
+            <li><span class="price-check">✓</span>Sponsored Pin with a distinct icon, always visible on the map</li>
+            <li><span class="price-check">✓</span>Pinned to the top of the feed, above regular stories</li>
+            <li><span class="price-check">✓</span>Reaches real users actively browsing the area</li>
+            <li><span class="price-check">✓</span>Content verified by AI moderation, keeping listings trustworthy</li>
+            <li><span class="price-check">✓</span>Payment verified on-chain — fully transparent, no hidden fees</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ── Manage tab ── -->
+      <div id="adPane-manage" style="display:none">
+        <div id="adMyCampaigns" class="ad-my-list">
+          <div class="ad-empty">Loading...</div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
 
 <!-- Toast -->
 <div id="toast"></div>
+
 
 <!-- ─── AI Travel Companion ─── -->
 <div id="aiPanel">
@@ -245,8 +409,8 @@
 <button id="aiBtn" onclick="toggleAI()" title="AI Travel Companion">✦ AI</button>
 
 <script>
-  // Buffer polyfill — phải chạy TRƯỚC khi bất kỳ SDK nào load
-  // Shelby SDK dùng Buffer ngay khi parse module, không thể chờ import async
+  // Buffer polyfill — must run BEFORE any SDK loads
+  // Shelby SDK uses Buffer as soon as the module is parsed, can't wait for async import
   window.global = window;
   window.process = window.process || { env: {}, browser: true };
 </script>
@@ -254,12 +418,12 @@
   import { Buffer } from 'buffer';
   window.Buffer = Buffer;
 </script>
-<!-- ① Leaflet global trước -->
+<!-- ① Leaflet global first -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- ① Leaflet.heat plugin -->
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
-<!-- ② Logic gốc sau khi đã có L -->
-<!-- ③ Shelby SDK (ES module) cuối cùng -->
+<!-- ② Core logic after L is available -->
+<!-- ③ Shelby SDK (ES module) last -->
 <script type="module" src="./src/main.ts"></script>
 </body>
 </html>
