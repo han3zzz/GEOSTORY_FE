@@ -51,6 +51,110 @@ const MOOD_COLOR: Record<string, string> = {
 };
 
 /* ════════════════════════════════════════
+   SUBSCRIPTIONS — pricing config (mirrors server.ts)
+════════════════════════════════════════ */
+
+const API_BASE = "https://geostory-0wfq.onrender.com"
+/**
+ * Fetch wrapper an toàn cho các endpoint trả JSON.
+ *
+ * Lý do cần cái này: khi Render (hoặc bất kỳ proxy/hosting nào) trả về lỗi
+ * hạ tầng (cold start đánh thức server free-tier, 502/504 gateway timeout,
+ * 413 payload quá lớn...), nó trả về một TRANG HTML ("<!DOCTYPE html>...")
+ * chứ không phải JSON — dù server.ts của chúng ta luôn trả JSON đúng cách.
+ * Gọi thẳng `res.json()` trong trường hợp đó sẽ throw:
+ *   SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+ * khiến người dùng thấy lỗi khó hiểu. Hàm này kiểm tra content-type trước,
+ * và nếu không phải JSON thì tạo thông báo lỗi rõ ràng, dễ hiểu, có gợi ý
+ * thử lại (vì server free-tier có thể mất 20-50s để "thức dậy").
+ */
+async function safeFetchJson(
+  url: string,
+  options?: RequestInit,
+  opts?: { timeoutMs?: number }
+): Promise<{ ok: boolean; status: number; data: any }> {
+  const timeoutMs = opts?.timeoutMs ?? 45_000; // đủ dài cho cold start Render free tier
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  let res: Response;
+  try {
+    res = await fetch(url, { ...options, signal: controller.signal });
+  } catch (err: any) {
+    clearTimeout(timer);
+    if (err?.name === "AbortError") {
+      throw new Error("Server không phản hồi (có thể đang khởi động lại, thử lại sau ít giây)");
+    }
+    throw new Error("Không thể kết nối tới server, kiểm tra lại mạng");
+  }
+  clearTimeout(timer);
+
+  const contentType = res.headers.get("content-type") || "";
+  const rawText = await res.text();
+
+  // Server trả về HTML (trang lỗi của proxy/hosting) thay vì JSON
+  if (!contentType.includes("application/json")) {
+    if (res.status === 502 || res.status === 503 || res.status === 504) {
+      throw new Error("Server đang khởi động lại (cold start), vui lòng thử lại sau 20-30 giây");
+    }
+    if (res.status === 413) {
+      throw new Error("Dữ liệu gửi lên quá lớn (ảnh quá nặng), vui lòng chọn ảnh nhỏ hơn");
+    }
+    if (res.status === 429) {
+      throw new Error("Quá nhiều yêu cầu, vui lòng thử lại sau ít phút");
+    }
+    console.error("[safeFetchJson] non-JSON response:", res.status, rawText.slice(0, 300));
+    throw new Error(`Server trả về phản hồi không hợp lệ (mã lỗi ${res.status}), vui lòng thử lại`);
+  }
+
+  let data: any;
+  try {
+    data = rawText ? JSON.parse(rawText) : {};
+  } catch (err) {
+    console.error("[safeFetchJson] JSON parse failed:", rawText.slice(0, 300));
+    throw new Error("Server trả về dữ liệu không hợp lệ, vui lòng thử lại");
+  }
+
+  return { ok: res.ok, status: res.status, data };
+}
+
+// Payment collected in APT (testnet) for now — will switch to shelbyUSD later.
+const TREASURY_ADDRESS = "0x2a2b71eb64838441b6bb408913cacd6d04f517fac1e187f7c346931f35b32775";
+const OCTAS_PER_APT    = 100_000_000;
+
+type TierName = "free" | "pro" | "premium";
+
+const PRICING: Record<Exclude<TierName, "free">, { apt: number; days: number; aiCreditsPerDay: number | null }> = {
+  pro:     { apt: 5,  days: 30, aiCreditsPerDay: 20 },
+  premium: { apt: 15, days: 30, aiCreditsPerDay: null },
+};
+
+const TIER_LABEL: Record<TierName, string> = { free: "Free", pro: "⭐ Pro", premium: "👑 Premium" };
+
+// Advertiser day-pricing (mirrors server.ts AD_PRICING — draft defaults, adjust anytime)
+const AD_PRICING = {
+  map:  { aptPerDay: 2   },
+  feed: { aptPerDay: 1.5 },
+  combo: { aptPerDay: 3  },
+};
+
+// Mirrors server.ts radiusMultiplier() — wider feed reach costs more.
+function radiusMultiplier(radiusKm: number): number {
+  if (radiusKm <= 5)   return 1;
+  if (radiusKm <= 20)  return 1.3;
+  if (radiusKm <= 50)  return 1.6;
+  if (radiusKm <= 100) return 2;
+  return 2.5;
+}
+const DEFAULT_AD_RADIUS_KM = 20;
+
+function renderTierBadge(tier?: string | null): string {
+  if (tier === "pro")     return `<span class="tier-badge tier-badge--pro">⭐ PRO</span>`;
+  if (tier === "premium") return `<span class="tier-badge tier-badge--premium">👑 PREMIUM</span>`;
+  return "";
+}
+
+/* ════════════════════════════════════════
    STATE
 ════════════════════════════════════════ */
 const S: {
@@ -67,6 +171,11 @@ const S: {
   imgData:       string | null;
   tempMarker:    any;
   shelbyLoading: boolean;
+  tier:          TierName;
+  tierExpiresAt: number | null;
+  showAds:       boolean;
+  adLat:         number | null;
+  adLng:         number | null;
 } = {
   walletAddr:    null,
   walletType:    null,
@@ -81,6 +190,11 @@ const S: {
   imgData:       null,
   tempMarker:    null,
   shelbyLoading: false,
+  tier:          "free",
+  tierExpiresAt: null,
+  showAds:       true,
+  adLat:         null,
+  adLng:         null,
 };
 (window as any).S = S;
 
@@ -98,12 +212,43 @@ const map = L.map("map", {
   minZoom: 3,
 });
 
-L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+const TILE_URL_DARK  = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+const TILE_URL_LIGHT = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+
+let _mapTileLayer = L.tileLayer(TILE_URL_DARK, {
   maxZoom: 19,
   noWrap: false,
 }).addTo(map);
 
 L.control.zoom({ position: "topright" }).addTo(map);
+
+/* ════════════════════════════════════════
+   THEME — light / dark toggle
+════════════════════════════════════════ */
+function applyTheme(theme: "dark" | "light"): void {
+  if (theme === "light") {
+    document.documentElement.setAttribute("data-theme", "light");
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+  }
+  map.removeLayer(_mapTileLayer);
+  _mapTileLayer = L.tileLayer(theme === "light" ? TILE_URL_LIGHT : TILE_URL_DARK, {
+    maxZoom: 19,
+    noWrap: false,
+  }).addTo(map);
+  const btn = document.getElementById("themeToggleBtn");
+  if (btn) btn.textContent = theme === "light" ? "☀" : "🌙";
+  localStorage.setItem("geostory:theme", theme);
+}
+
+function toggleTheme(): void {
+  const current = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+  applyTheme(current === "light" ? "dark" : "light");
+}
+(window as any).toggleTheme = toggleTheme;
+
+// Restore saved preference on load (defaults to dark, matching the original look).
+applyTheme(localStorage.getItem("geostory:theme") === "light" ? "light" : "dark");
 
 /* ════════════════════════════════════════
    GLOBE
@@ -592,22 +737,33 @@ map.on("zoomend", () => {
 /* ════════════════════════════════════════
    MAP CLICK — pin location
 ════════════════════════════════════════ */
+let _pickTarget: "story" | "ad" = "story";
+
 map.on("click", (e: any) => {
   if (!S.picking) return;
-  S.lat = +e.latlng.lat.toFixed(5);
-  S.lng = +e.latlng.lng.toFixed(5);
-  (document.getElementById("coordsTxt") as HTMLElement).textContent = `${S.lat}, ${S.lng}`;
+  const lat = +e.latlng.lat.toFixed(5);
+  const lng = +e.latlng.lng.toFixed(5);
   hidePick();
-  openModal("postModal");
-  toast("📍 Location selected!");
   if (S.tempMarker) map.removeLayer(S.tempMarker);
-  S.tempMarker = L.marker([S.lat, S.lng], {
+  S.tempMarker = L.marker([lat, lng], {
     icon: L.divIcon({
       className: "",
       html: `<div class="mk" style="background:var(--accent2)">+</div>`,
       iconSize: [34, 34], iconAnchor: [17, 34],
     }),
   }).addTo(map);
+
+  if (_pickTarget === "ad") {
+    S.adLat = lat; S.adLng = lng;
+    const el = document.getElementById("adCoordsTxt");
+    if (el) el.textContent = `${lat}, ${lng}`;
+    openModal("adModal");
+  } else {
+    S.lat = lat; S.lng = lng;
+    (document.getElementById("coordsTxt") as HTMLElement).textContent = `${lat}, ${lng}`;
+    openModal("postModal");
+  }
+  toast("📍 Location selected!");
 });
 
 /* ════════════════════════════════════════
@@ -624,6 +780,8 @@ async function init(): Promise<void> {
   renderFeed();
   syncCount();
   addVietnamIslandMarkers();
+  renderPricingModal();
+  loadActiveAds();
 
   // Auto-reconnect Petra — handled by tryAutoReconnect after 2.5s
   // Load likes + comments from server after 3.5s
@@ -693,7 +851,7 @@ function showPopup(story: any): void {
     ? `<img class="pop-img" src="${esc(story.img)}" alt="${esc(story.title)}" onerror="this.style.display='none'">`
     : `<div class="pop-img-placeholder">${CAT_EMOJI[story.cat] || "📍"}</div>`;
   const tags  = (story.tags || []).map((t: string) => `<span class="pop-tag">${esc(t)}</span>`).join("");
-  const liked = S.walletAddr && story.likedBy.has(S.walletAddr);
+  const liked = !!S.walletAddr && story.likedBy.has(S.walletAddr.toLowerCase());
   const chainBadge = story.fromChain
     ? `<div class="pop-chain-badge">⛓ ON-CHAIN · SHELBY TESTNET</div>` : "";
   const cmtCount = Array.isArray(story.commentList) ? story.commentList.length : (story.comments || 0);
@@ -705,7 +863,7 @@ function showPopup(story: any): void {
       <div class="pop-body">
         ${chainBadge}
         <div class="pop-title">${esc(story.mood)} ${esc(story.title)}</div>
-        <div class="pop-author">${esc(story.author)} · ${timeAgo(story.time)}</div>
+        <div class="pop-author">${esc(story.author)} ${renderTierBadge(story.tier)} · ${timeAgo(story.time)}</div>
         <div class="pop-desc">${esc(story.desc)}</div>
         <div class="pop-tags">${tags}</div>
         <div class="pop-actions">
@@ -719,15 +877,92 @@ function showPopup(story: any): void {
 
 /* ════════════════════════════════════════
    FEED
-════════════════════════════════════════ */
+════════════════════════════════════════
+   Ranking rules:
+   1. A capped number of sponsored cards ("ads") always sit at the very
+      top — capped so a flood of advertisers can't bury real content.
+   2. Among stories: a PREMIUM author's story only jumps the queue while
+      it's fresh (posted within PREMIUM_BOOST_WINDOW_MS). Older stories
+      from the same premium user fall back to plain chronological order —
+      the perk is "new posts get seen first", not "this person's whole
+      history stays pinned forever".
+   3. If there are more active ad campaigns than fit in the top slots,
+      the overflow doesn't just vanish — it rotates into the top slots
+      over time (so every advertiser gets fair rotation) and is also
+      interleaved further down the feed every few organic cards, instead
+      of stacking everything above the fold at once. */
+
+const PREMIUM_BOOST_WINDOW_MS = 48 * 60 * 60 * 1000; // "new" = posted in the last 48h
+const AD_FEED_TOP_SLOTS        = 3;                  // pinned sponsored slots at the very top
+const AD_FEED_INTERLEAVE_EVERY = 8;                  // + 1 more sponsored card every N story cards
+const AD_ROTATION_BUCKET_MS    = 5 * 60 * 1000;       // top-slot lineup reshuffles every 5 min
+
+function feedSortWeight(s: any): number {
+  return (s.tier === "premium" && (Date.now() - s.time) < PREMIUM_BOOST_WINDOW_MS) ? 1 : 0;
+}
+
+function sortedFeedStories(): any[] {
+  return [...filtered()].sort((a: any, b: any) => {
+    const wa = feedSortWeight(a), wb = feedSortWeight(b);
+    if (wa !== wb) return wb - wa;   // fresh-premium first
+    return b.time - a.time;          // then newest first
+  });
+}
+
+/** Splits active feed ads into a rotating "top" set and a "rest" pool for
+ *  interleaving, so campaigns share the spotlight fairly as volume grows. */
+function rotateFeedAds(ads: any[]): { top: any[]; rest: any[] } {
+  if (ads.length <= AD_FEED_TOP_SLOTS) return { top: ads, rest: [] };
+  const bucket = Math.floor(Date.now() / AD_ROTATION_BUCKET_MS) % ads.length;
+  const rotated = ads.slice(bucket).concat(ads.slice(0, bucket));
+  return { top: rotated.slice(0, AD_FEED_TOP_SLOTS), rest: rotated.slice(AD_FEED_TOP_SLOTS) };
+}
+
 function renderFeed(): void {
   const el = document.getElementById("storyList")!;
-  el.innerHTML = [...filtered()].sort((a: any, b: any) => b.time - a.time).map(cardHTML).join("");
+  const { top: topAds, rest: overflowAds } = rotateFeedAds(getActiveFeedAds());
+  const stories = sortedFeedStories();
+
+  let html = topAds.map(adCardHTML).join("");
+
+  if (overflowAds.length === 0) {
+    html += stories.map(cardHTML).join("");
+  } else {
+    let adPtr = 0;
+    stories.forEach((s, i) => {
+      html += cardHTML(s);
+      if ((i + 1) % AD_FEED_INTERLEAVE_EVERY === 0 && adPtr < overflowAds.length) {
+        html += adCardHTML(overflowAds[adPtr]);
+        adPtr++;
+      }
+    });
+  }
+
+  el.innerHTML = html;
 }
 (window as any).renderFeed = renderFeed;
 
+function adCardHTML(ad: any): string {
+  const imgPart = ad.imageBase64
+    ? `<img class="scard-img" src="${esc(ad.imageBase64)}" alt="${esc(ad.title)}" loading="lazy" onerror="this.style.display='none'">`
+    : `<div class="scard-img-placeholder">📢</div>`;
+  const desc = esc(ad.description || "").slice(0, 100) + ((ad.description || "").length > 100 ? "..." : "");
+  return `
+  <div class="scard scard--ad" onclick="flyTo(${ad.lat},${ad.lng},null)">
+    ${imgPart}
+    <div class="scard-body">
+      <div class="scard-header">
+        <span class="scard-mood">📢</span>
+        <div class="scard-title">${esc(ad.title)}</div>
+        <span class="ad-tag">SPONSORED</span>
+      </div>
+      ${desc ? `<div class="scard-desc">${desc}</div>` : ""}
+    </div>
+  </div>`;
+}
+
 function cardHTML(s: any): string {
-  const liked    = S.walletAddr && s.likedBy.has(S.walletAddr);
+  const liked    = !!S.walletAddr && s.likedBy.has(S.walletAddr.toLowerCase());
   const imgPart  = s.img
     ? `<img class="scard-img" src="${esc(s.img)}" alt="${esc(s.title)}" loading="lazy" onerror="this.style.display='none'">`
     : `<div class="scard-img-placeholder">${CAT_EMOJI[s.cat] || "📍"}</div>`;
@@ -745,6 +980,7 @@ function cardHTML(s: any): string {
       </div>
       <div class="scard-meta">
         <span class="scard-author">${esc(s.author)}</span>
+        ${renderTierBadge(s.tier)}
         <span class="scard-tag">${CAT_EMOJI[s.cat] || ""} ${esc(s.cat)}</span>
         <span class="scard-time">${timeAgo(s.time)}</span>
       </div>
@@ -865,22 +1101,574 @@ function syncCount(): void {
 function setWalletUI(addr: string, type: "petra" | "metamask" | "demo"): void {
   S.walletAddr = addr;
   S.walletType = type;
-  const btn = document.getElementById("walletBtn")!;
-  btn.textContent = shortAddr(addr);
+  const btn   = document.getElementById("walletBtn")!;
+  const label = document.getElementById("walletBtnLabel");
+  if (label) label.textContent = shortAddr(addr); else btn.textContent = shortAddr(addr);
   btn.className   = "connected";
   btn.onclick     = toggleProfile;
   const profAddr = document.getElementById("profAddr");
   if (profAddr) profAddr.textContent = addr;
+  fetchMyTier();
 }
 
 function clearWalletUI(): void {
-  const btn = document.getElementById("walletBtn")!;
-  btn.textContent = "CONNECT WALLET";
+  const btn   = document.getElementById("walletBtn")!;
+  const label = document.getElementById("walletBtnLabel");
+  if (label) label.textContent = "CONNECT WALLET"; else btn.textContent = "CONNECT WALLET";
   btn.className   = "";
   btn.onclick     = () => openModal("walletModal");
   const profAddr = document.getElementById("profAddr");
   if (profAddr) profAddr.textContent = "—";
+  S.tier = "free";
+  S.tierExpiresAt = null;
+  S.showAds = true;
+  renderPricingModal();
+  updateProfileTierUI();
 }
+
+/* ════════════════════════════════════════
+   SUBSCRIPTIONS — fetch tier, pay, render pricing UI
+════════════════════════════════════════ */
+async function fetchMyTier(): Promise<void> {
+  if (!S.walletAddr) return;
+  try {
+    const { data } = await safeFetchJson(`${API_BASE}/api/subscribe/${S.walletAddr}`);
+    S.tier          = data.tier ?? "free";
+    S.tierExpiresAt = data.expiresAt ?? null;
+    S.showAds       = data.showAds ?? true;
+  } catch {
+    S.tier = "free"; S.tierExpiresAt = null; S.showAds = true;
+  }
+  renderPricingModal();
+  updateProfileTierUI();
+  renderFeed();
+  renderMarkers();
+  loadActiveAds();
+}
+
+function updateTopbarTierBadge(): void {
+  const el = document.getElementById("topbarTierBadge");
+  if (!el) return;
+  if (!S.walletAddr) { el.innerHTML = ""; return; }
+  el.innerHTML = S.tier === "free"
+    ? `<span class="tier-badge tier-badge--free">FREE</span>`
+    : renderTierBadge(S.tier);
+}
+
+// Shared formatter for any "expires at" timestamp (subscriptions, ad campaigns).
+function formatExpiry(expiresAtMs: number): { text: string; soon: boolean } {
+  const now     = Date.now();
+  const msLeft  = expiresAtMs - now;
+  const daysLeft = Math.max(0, Math.ceil(msLeft / (24 * 60 * 60 * 1000)));
+  const dateStr = new Date(expiresAtMs).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  if (msLeft <= 0) return { text: `Expired ${dateStr}`, soon: true };
+  const soon = daysLeft <= 3;
+  return { text: `Expires in ${daysLeft} day${daysLeft === 1 ? "" : "s"} (${dateStr})`, soon };
+}
+
+function updateProfileTierUI(): void {
+  const el = document.getElementById("profTierBadge");
+  if (el) el.innerHTML = S.tier === "free" ? "" : renderTierBadge(S.tier);
+  const adsRow = document.getElementById("adsToggleRow");
+  if (adsRow) adsRow.style.display = S.tier === "premium" ? "flex" : "none";
+  const adsSwitch = document.getElementById("adsToggleInput") as HTMLInputElement | null;
+  if (adsSwitch) adsSwitch.checked = S.showAds;
+
+  const expiryEl = document.getElementById("profTierExpiry");
+  if (expiryEl) {
+    if (S.tier !== "free" && S.tierExpiresAt) {
+      const { text, soon } = formatExpiry(S.tierExpiresAt);
+      expiryEl.textContent = text;
+      expiryEl.classList.toggle("expiry-soon", soon);
+    } else {
+      expiryEl.textContent = "";
+      expiryEl.classList.remove("expiry-soon");
+    }
+  }
+
+  updateTopbarTierBadge();
+}
+
+async function payWithAPT(tier: "pro" | "premium"): Promise<void> {
+  if (!S.walletAddr) { closeModal("pricingModal"); openModal("walletModal"); return; }
+  if (S.walletType !== "petra" || !_connectedWallet) {
+    toast("⚠ Connect Petra wallet to upgrade — Demo mode can't sign transactions");
+    return;
+  }
+
+  const btn = document.getElementById(`upgradeBtn-${tier}`) as HTMLButtonElement | null;
+  const originalLabel = btn?.textContent ?? "";
+  if (btn) { btn.disabled = true; btn.textContent = "⏳ Confirm in wallet..."; }
+
+  try {
+    const amountOctas = PRICING[tier].apt * OCTAS_PER_APT;
+
+    const signFn = _connectedWallet.features["aptos:signAndSubmitTransaction"]?.signAndSubmitTransaction;
+    if (!signFn) throw new Error("Wallet does not support signing transactions");
+
+    const result = await signFn({
+      payload: {
+        function:      "0x1::aptos_account::transfer",
+        typeArguments: [],
+        functionArguments: [TREASURY_ADDRESS, String(amountOctas)],
+      },
+    });
+
+    const txHash = result?.hash ?? result?.args?.hash;
+    if (!txHash) throw new Error("No transaction hash returned by wallet");
+
+    if (btn) btn.textContent = "⏳ Verifying payment...";
+
+    const { ok, data } = await safeFetchJson(`${API_BASE}/api/subscribe`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ wallet: S.walletAddr, tier, txHash }),
+    });
+    if (!ok || !data.success) throw new Error(data?.error || "Activation failed");
+
+    S.tier = data.tier;
+    S.tierExpiresAt = data.expiresAt;
+    toast(`✅ Upgraded to ${TIER_LABEL[data.tier as TierName]}!`);
+    renderPricingModal();
+    updateProfileTierUI();
+    renderFeed();
+    renderMarkers();
+    loadActiveAds();
+
+  } catch (err: any) {
+    console.error("[payWithAPT]", err);
+    toast(`❌ Payment failed: ${err?.message ?? err}`);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+  }
+}
+(window as any).payWithAPT = payWithAPT;
+
+async function toggleAdsVisibility(checked: boolean): Promise<void> {
+  if (!S.walletAddr || S.tier !== "premium") return;
+
+  // Optimistic UI: we already have the active-campaigns list cached locally
+  // (_activeAds), so there's no need to wait on the server or refetch before
+  // showing/hiding — just re-render immediately from the cache. This is what
+  // made the toggle feel laggy before (full network round-trip + refetch on
+  // every flip). The PATCH call below still runs to persist the preference;
+  // we only revert the UI if it actually fails.
+  const previous = S.showAds;
+  S.showAds = checked;
+  renderAdMarkers();
+  renderFeed();
+  toast(checked ? "🔔 Ads shown" : "🔕 Ads hidden");
+
+  try {
+    const { ok, data } = await safeFetchJson(`${API_BASE}/api/settings/ads`, {
+      method:  "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ wallet: S.walletAddr, showAds: checked }),
+    });
+    if (!ok) throw new Error(data?.error || "Failed to update setting");
+    S.showAds = data.showAds;
+  } catch (err: any) {
+    // Revert — the server didn't save it, so don't leave the UI out of sync.
+    S.showAds = previous;
+    renderAdMarkers();
+    renderFeed();
+    toast(`❌ ${err?.message ?? "Could not update setting"} — reverted`);
+    updateProfileTierUI(); // resync switch UI
+  }
+}
+(window as any).toggleAdsVisibility = toggleAdsVisibility;
+
+function renderPricingModal(): void {
+  const el = document.getElementById("pricingCards");
+  if (!el) return;
+
+  const plans: { key: TierName; name: string; icon: string; price: string; sub: string; features: string[]; cta: string; highlight: boolean }[] = [
+    {
+      key: "free", name: "Free", icon: "🆓", price: "0", sub: "APT / forever",
+      features: ["5 stories / day", "Unlimited Like & Comment", "Full map & feed access"],
+      cta: "Current plan", highlight: false,
+    },
+    {
+      key: "pro", name: "Pro", icon: "⭐", price: String(PRICING.pro.apt), sub: "APT / 30 days",
+      features: ["Unlimited stories", "AI Companion — 20 messages/day", "⭐ PRO badge on map, feed & comments"],
+      cta: "Upgrade to Pro", highlight: false,
+    },
+    {
+      key: "premium", name: "Premium", icon: "👑", price: String(PRICING.premium.apt), sub: "APT / 30 days",
+      features: ["Everything in Pro", "AI Companion — unlimited", "👑 PREMIUM glow badge", "Priority placement at top of feed", "Option to hide ads"],
+      cta: "Upgrade to Premium", highlight: true,
+    },
+  ];
+
+  el.innerHTML = plans.map(p => {
+    const isCurrent = S.tier === p.key;
+    const isFree    = p.key === "free";
+    const btnHtml   = isCurrent
+      ? `<button class="price-cta price-cta--current" disabled>✓ Current plan</button>`
+      : isFree
+      ? `<button class="price-cta" disabled>—</button>`
+      : `<button class="price-cta" id="upgradeBtn-${p.key}" onclick="payWithAPT('${p.key}')">${p.cta}</button>`;
+
+    // Show the real expiry date on whichever plan is currently active, if any.
+    const expiryHtml = (isCurrent && !isFree && S.tierExpiresAt)
+      ? `<div class="price-expiry">${esc(formatExpiry(S.tierExpiresAt).text)}</div>`
+      : "";
+
+    return `
+    <div class="price-card ${p.highlight ? "price-card--highlight" : ""} ${isCurrent ? "price-card--current" : ""}">
+      ${p.highlight ? `<div class="price-ribbon">MOST POPULAR</div>` : ""}
+      <div class="price-icon">${p.icon}</div>
+      <div class="price-name">${p.name}</div>
+      <div class="price-amount"><span class="price-num">${p.price}</span><span class="price-unit">${p.sub}</span></div>
+      <ul class="price-features">
+        ${p.features.map(f => `<li><span class="price-check">✓</span>${esc(f)}</li>`).join("")}
+      </ul>
+      ${btnHtml}
+      ${expiryHtml}
+    </div>`;
+  }).join("");
+}
+(window as any).renderPricingModal = renderPricingModal;
+
+function openPricingModal(): void {
+  renderPricingModal();
+  openModal("pricingModal");
+}
+(window as any).openPricingModal = openPricingModal;
+
+/* ════════════════════════════════════════
+   ADVERTISER — create & pay for a sponsored campaign
+════════════════════════════════════════ */
+let _adImgData: string | null = null;
+let _adPlacement: "map" | "feed" | "combo" = "map";
+let _adDays = 1;
+let _adRadiusKm = 5; // matches the default-selected chip in the ad modal
+
+function openAdModal(): void {
+  // Show the Ads modal (placements, pricing, campaign form) to everyone —
+  // same principle as Pricing: let people see what's on offer before asking
+  // them to connect a wallet. The wallet is only required at the moment
+  // they actually try to submit/pay for a campaign (see submitAd()), or if
+  // they switch to the "My campaigns" tab, which needs a wallet to look up.
+  if (S.walletType === "demo") {
+    toast("⚠ Demo mode can't sign transactions — connect Petra to advertise");
+  }
+  switchAdTab("create");
+  openModal("adModal");
+  updateAdPrice();
+  _setModStatus("adModStatus", "hide");
+}
+(window as any).openAdModal = openAdModal;
+
+function switchAdTab(tab: "create" | "manage"): void {
+  document.querySelectorAll(".ad-tab-btn").forEach(b => b.classList.remove("sel"));
+  document.getElementById(`adTab-${tab}`)?.classList.add("sel");
+  const createPane = document.getElementById("adPane-create");
+  const managePane = document.getElementById("adPane-manage");
+  if (createPane) createPane.style.display = tab === "create" ? "block" : "none";
+  if (managePane) managePane.style.display = tab === "manage" ? "block" : "none";
+  if (tab === "manage") loadMyCampaigns();
+}
+(window as any).switchAdTab = switchAdTab;
+
+async function loadMyCampaigns(): Promise<void> {
+  const el = document.getElementById("adMyCampaigns");
+  if (!el) return;
+  if (!S.walletAddr) {
+    el.innerHTML = `<div class="ad-empty">🔌 Connect your wallet to see your campaigns.
+      <button class="ad-empty-connect-btn" onclick="openModal('walletModal')">Connect wallet</button></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="ad-empty">Loading...</div>`;
+  try {
+    const { data } = await safeFetchJson(`${API_BASE}/api/ads/mine/${S.walletAddr}`);
+    const campaigns: any[] = Array.isArray(data.campaigns) ? data.campaigns : [];
+    if (!campaigns.length) {
+      el.innerHTML = `<div class="ad-empty">No campaigns yet — create your first one!</div>`;
+      return;
+    }
+    const placementLabel: Record<string, string> = { map: "📍 Map Pin", feed: "📰 Feed", combo: "✦ Map + Feed" };
+    el.innerHTML = campaigns.map(ad => {
+      const endDateStr = new Date(ad.endAt).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+      const endTimeStr = new Date(ad.endAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+      const radiusPart = (ad.placement === "feed" || ad.placement === "combo") && ad.radiusKm
+        ? ` · ${ad.radiusKm}km reach`
+        : "";
+      return `
+      <div class="ad-my-card ${ad.active ? "" : "ad-my-card--expired"}">
+        <div class="ad-my-head">
+          <span class="ad-my-title">${esc(ad.title)}</span>
+          <span class="ad-my-status ${ad.active ? "ad-my-status--active" : "ad-my-status--expired"}">
+            ${ad.active ? `🟢 ${ad.daysLeft} day${ad.daysLeft === 1 ? "" : "s"} left` : "⚪ Ended"}
+          </span>
+        </div>
+        <div class="ad-my-meta">${placementLabel[ad.placement] ?? ad.placement} · ${ad.days} day${ad.days > 1 ? "s" : ""} campaign${radiusPart}</div>
+        <div class="ad-my-meta">${ad.active ? "Expires" : "Expired"} ${endDateStr} at ${endTimeStr}</div>
+      </div>
+    `; }).join("");
+  } catch {
+    el.innerHTML = `<div class="ad-empty">Could not load your campaigns, please try again.</div>`;
+  }
+}
+(window as any).loadMyCampaigns = loadMyCampaigns;
+
+function handleAdImg(e: Event): void {
+  const file = (e.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { toast("⚠ Image max 5MB"); return; }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    _adImgData = (ev.target as FileReader).result as string;
+    const p = document.getElementById("adImgPreview") as HTMLImageElement;
+    if (p) { p.src = _adImgData; p.style.display = "block"; }
+    document.getElementById("adImgDrop")?.classList.add("has-image");
+  };
+  reader.readAsDataURL(file);
+}
+(window as any).handleAdImg = handleAdImg;
+
+function pickAdPlacement(btn: HTMLElement): void {
+  _adPlacement = btn.dataset.placement as "map" | "feed" | "combo";
+  document.querySelectorAll(".ad-placement-chip").forEach(c => c.classList.remove("sel"));
+  btn.classList.add("sel");
+  const radiusGroup = document.getElementById("adRadiusGroup");
+  if (radiusGroup) radiusGroup.style.display = (_adPlacement === "feed" || _adPlacement === "combo") ? "flex" : "none";
+  updateAdPrice();
+}
+(window as any).pickAdPlacement = pickAdPlacement;
+
+function pickAdRadius(btn: HTMLElement): void {
+  _adRadiusKm = Number(btn.dataset.radius) || DEFAULT_AD_RADIUS_KM;
+  document.querySelectorAll(".ad-radius-chip").forEach(c => c.classList.remove("sel"));
+  btn.classList.add("sel");
+  updateAdPrice();
+}
+(window as any).pickAdRadius = pickAdRadius;
+
+function pickAdDays(btn: HTMLElement): void {
+  const custom = document.getElementById("adDaysCustom") as HTMLInputElement | null;
+  if (btn.dataset.days === "custom") {
+    if (custom) { custom.style.display = "inline-block"; custom.focus(); }
+    _adDays = custom && +custom.value > 0 ? +custom.value : 1;
+  } else {
+    if (custom) custom.style.display = "none";
+    _adDays = Number(btn.dataset.days);
+  }
+  document.querySelectorAll(".ad-days-chip").forEach(c => c.classList.remove("sel"));
+  btn.classList.add("sel");
+  updateAdPrice();
+}
+(window as any).pickAdDays = pickAdDays;
+
+function onAdDaysCustomInput(input: HTMLInputElement): void {
+  const n = Math.max(1, Math.min(365, Math.floor(Number(input.value) || 1)));
+  input.value = String(n);
+  _adDays = n;
+  updateAdPrice();
+}
+(window as any).onAdDaysCustomInput = onAdDaysCustomInput;
+
+function updateAdPrice(): void {
+  const hasRadius  = _adPlacement === "feed" || _adPlacement === "combo";
+  const mult       = hasRadius ? radiusMultiplier(_adRadiusKm) : 1;
+  const perDayBase = AD_PRICING[_adPlacement].aptPerDay;
+  const perDay     = +(perDayBase * mult).toFixed(2);
+  const total      = +(perDay * _adDays).toFixed(2);
+  const el = document.getElementById("adPriceTotal");
+  if (el) el.textContent = `${total} APT`;
+  const subEl = document.getElementById("adPriceSub");
+  if (subEl) {
+    subEl.textContent = hasRadius
+      ? `${perDay} APT/day × ${_adDays} day${_adDays > 1 ? "s" : ""} · ${_adRadiusKm}km reach (×${mult})`
+      : `${perDay} APT/day × ${_adDays} day${_adDays > 1 ? "s" : ""}`;
+  }
+}
+(window as any).updateAdPrice = updateAdPrice;
+
+function _setModStatus(elId: string, state: "checking" | "ok" | "rejected" | "hide", text?: string): void {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (state === "hide") {
+    el.className = "mod-status";
+    el.textContent = "";
+    return;
+  }
+  el.className = `mod-status show mod-status--${state}`;
+  el.textContent = text ?? (
+    state === "checking" ? "The AI ​​is moderating the content, please wait..." :
+    state === "ok"       ? "Valid content - processing..." :
+                            "Invalid content."
+  );
+}
+
+async function submitAd(): Promise<void> {
+  const title = (document.getElementById("adTitle") as HTMLInputElement).value.trim();
+  const desc  = (document.getElementById("adDesc")  as HTMLTextAreaElement).value.trim();
+
+  if (!title) { toast("⚠ Please enter a campaign title"); return; }
+  if (S.adLat == null || S.adLng == null) { toast("📍 Click the map to pick a location"); startAdPick(); return; }
+  if (!_connectedWallet) { toast("⚠ Connect Petra wallet to advertise"); return; }
+
+  const btn = document.getElementById("adSubmitBtn") as HTMLButtonElement | null;
+  const originalLabel = btn?.textContent ?? "";
+  if (btn) { btn.disabled = true; }
+
+  try {
+    // ── AI moderation, checked BEFORE the wallet is ever asked to sign a
+    // payment — so a rejected campaign never costs the advertiser APT.
+    if (btn) btn.textContent = "⏳ AI is moderating content...";
+    _setModStatus("adModStatus", "checking");
+
+    const { ok: modOk, data: modData } = await safeFetchJson(`${API_BASE}/api/ads/moderate`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, description: desc, imageBase64: _adImgData ?? undefined }),
+    }, { timeoutMs: 30_000 });
+
+    if (!modOk) {
+      _setModStatus("adModStatus", "rejected", modData?.error || "Content violates community guidelines, please revise the title/description/image.");
+      toast(`❌ ${modData?.error ?? "Content rejected by AI moderation"}`);
+      return;
+    }
+    _setModStatus("adModStatus", "ok");
+
+    const hasRadius   = _adPlacement === "feed" || _adPlacement === "combo";
+    const mult        = hasRadius ? radiusMultiplier(_adRadiusKm) : 1;
+    const amountOctas = Math.round(AD_PRICING[_adPlacement].aptPerDay * mult * _adDays * OCTAS_PER_APT);
+
+    if (btn) btn.textContent = "⏳ Confirm in wallet...";
+
+    const signFn = _connectedWallet.features["aptos:signAndSubmitTransaction"]?.signAndSubmitTransaction;
+    if (!signFn) throw new Error("Wallet does not support signing transactions");
+
+    const result = await signFn({
+      payload: {
+        function:      "0x1::aptos_account::transfer",
+        typeArguments: [],
+        functionArguments: [TREASURY_ADDRESS, String(amountOctas)],
+      },
+    });
+
+    const txHash = result?.hash ?? result?.args?.hash;
+    if (!txHash) throw new Error("No transaction hash returned by wallet");
+
+    if (btn) btn.textContent = "⏳ Verifying payment...";
+
+    const { ok, data } = await safeFetchJson(`${API_BASE}/api/ads`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        wallet: S.walletAddr, title, description: desc,
+        imageBase64: _adImgData ?? undefined,
+        lat: S.adLat, lng: S.adLng,
+        placement: _adPlacement, radiusKm: hasRadius ? _adRadiusKm : undefined, days: _adDays, txHash,
+      }),
+    }, { timeoutMs: 60_000 }); // dài hơn vì có thể kèm ảnh base64
+    if (!ok || !data.success) {
+      if (data?.categories) _setModStatus("adModStatus", "rejected", data?.error);
+      throw new Error(data?.error || "Campaign activation failed");
+    }
+
+    _setModStatus("adModStatus", "hide");
+    toast("✅ Campaign is live!");
+    closeModal("adModal");
+    if (S.tempMarker) { map.removeLayer(S.tempMarker); S.tempMarker = null; }
+    loadActiveAds();
+
+    // reset form
+    (document.getElementById("adTitle") as HTMLInputElement).value = "";
+    (document.getElementById("adDesc")  as HTMLTextAreaElement).value = "";
+    _adImgData = null;
+    S.adLat = null; S.adLng = null;
+    const preview = document.getElementById("adImgPreview") as HTMLImageElement | null;
+    if (preview) preview.style.display = "none";
+    document.getElementById("adImgDrop")?.classList.remove("has-image");
+    const coordsEl = document.getElementById("adCoordsTxt");
+    if (coordsEl) coordsEl.textContent = "Not selected";
+    _adRadiusKm = DEFAULT_AD_RADIUS_KM;
+    document.querySelectorAll(".ad-radius-chip").forEach(c =>
+      (c as HTMLElement).classList.toggle("sel", (c as HTMLElement).dataset.radius === "5"));
+
+  } catch (err: any) {
+    console.error("[submitAd]", err);
+    toast(`❌ Campaign failed: ${err?.message ?? err}`);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+  }
+}
+(window as any).submitAd = submitAd;
+
+/* ── Rendering sponsored content on map + feed ── */
+let _activeAds: any[] = [];
+let _adMarkers: any[] = [];
+
+async function loadActiveAds(): Promise<void> {
+  try {
+    const qs  = S.walletAddr ? `?wallet=${encodeURIComponent(S.walletAddr)}` : "";
+    const { data } = await safeFetchJson(`${API_BASE}/api/ads/active${qs}`);
+    _activeAds = Array.isArray(data.campaigns) ? data.campaigns : [];
+  } catch {
+    _activeAds = [];
+  }
+  renderAdMarkers();
+  renderFeed();
+}
+
+function renderAdMarkers(): void {
+  _adMarkers.forEach(m => map.removeLayer(m));
+  _adMarkers = [];
+
+  // Premium wallets can opt out of seeing ads (S.showAds) — enforced
+  // client-side now so the toggle is instant (see toggleAdsVisibility()).
+  if (!S.showAds) return;
+
+  for (const ad of _activeAds) {
+    if (ad.placement !== "map" && ad.placement !== "combo") continue;
+    const icon = L.divIcon({
+      className: "",
+      html: `
+        <div class="ad-pin-wrap">
+          <div class="ad-pin-pulse"></div>
+          <div class="ad-pin"><span class="ad-pin-icon">📢</span></div>
+        </div>
+      `,
+      iconSize: [40, 46], iconAnchor: [20, 46],
+    });
+    const marker = L.marker([ad.lat, ad.lng], { icon }).addTo(map);
+    marker.bindPopup(`
+      <div class="pop-card">
+        ${ad.imageBase64 ? `<img class="pop-img" src="${ad.imageBase64}">` : ""}
+        <div class="pop-title">📢 ${esc(ad.title)}</div>
+        <div class="pop-author"><span class="ad-tag">SPONSORED</span></div>
+        <div class="pop-desc">${esc(ad.description)}</div>
+      </div>
+    `, { className: "custom-popup" });
+    _adMarkers.push(marker);
+  }
+}
+(window as any).loadActiveAds = loadActiveAds;
+
+function getActiveFeedAds(): any[] {
+  if (!S.showAds) return [];
+  const center = map.getCenter();
+  return _activeAds.filter(ad => {
+    if (ad.placement !== "feed" && ad.placement !== "combo") return false;
+    const radiusKm = Number(ad.radiusKm) || DEFAULT_AD_RADIUS_KM;
+    // Only shown in the feed to viewers currently looking at the map within
+    // the campaign's paid-for reach radius.
+    return getDistance(ad.lat, ad.lng, center.lat, center.lng) <= radiusKm;
+  });
+}
+
+// Feed ad relevance depends on what part of the map the viewer is looking at
+// (radius targeting), so re-check it whenever the view settles — debounced
+// so dragging the map doesn't hammer renderFeed().
+let _feedAdMoveTimer: ReturnType<typeof setTimeout> | null = null;
+map.on("moveend", () => {
+  if (_feedAdMoveTimer) clearTimeout(_feedAdMoveTimer);
+  _feedAdMoveTimer = setTimeout(() => renderFeed(), 400);
+});
+
 
 /* ════════════════════════════════════════
    WALLET MODAL — AIP-62
@@ -1100,9 +1888,14 @@ function doDisconnect(): void {
   S.walletAddr = null;
   S.walletType = null;
   localStorage.setItem("geostory_disconnected", "1");
+  S.stories.forEach((s: any) => { s.isOwn = false; });
   clearWalletUI();
   const card = document.getElementById("profileCard");
   if (card) card.style.display = "none";
+  const profStories = document.getElementById("profStories");
+  const profLikes   = document.getElementById("profLikes");
+  if (profStories) profStories.textContent = "0";
+  if (profLikes)   profLikes.textContent   = "0";
   toast("🔌 Disconnected");
 }
 
@@ -1160,6 +1953,11 @@ if (_pending) {
    WALLET UI ACTIONS
 ════════════════════════════════════════ */
 function toggleProfile(): void {
+  if (!S.walletAddr) {
+    toast("🔌 Connect a wallet to view your profile");
+    openModal("walletModal");
+    return;
+  }
   const el   = document.getElementById("profileCard")!;
   const open = el.style.display === "block";
   el.style.display = open ? "none" : "block";
@@ -1182,16 +1980,27 @@ function startPost(): void {
   }
   if (!S.lat) { toast("📍 Click the map to pick a location"); startPick(); }
   else openModal("postModal");
+  _setModStatus("storyModStatus", "hide");
 }
 (window as any).startPost = startPost;
 
 function startPick(): void {
   closeModal("postModal");
+  _pickTarget = "story";
   S.picking = true;
   document.getElementById("pickBar")!.classList.add("show");
   map.getContainer().style.cursor = "crosshair";
 }
 (window as any).startPick = startPick;
+
+function startAdPick(): void {
+  closeModal("adModal");
+  _pickTarget = "ad";
+  S.picking = true;
+  document.getElementById("pickBar")!.classList.add("show");
+  map.getContainer().style.cursor = "crosshair";
+}
+(window as any).startAdPick = startAdPick;
 
 function hidePick(): void {
   S.picking = false;
@@ -1199,7 +2008,10 @@ function hidePick(): void {
   map.getContainer().style.cursor = "";
 }
 
-function cancelPick(): void { hidePick(); openModal("postModal"); }
+function cancelPick(): void {
+  hidePick();
+  openModal(_pickTarget === "ad" ? "adModal" : "postModal");
+}
 (window as any).cancelPick = cancelPick;
 
 function handleImg(e: Event): void {
@@ -1211,6 +2023,7 @@ function handleImg(e: Event): void {
     S.imgData = (ev.target as FileReader).result as string;
     const p = document.getElementById("imgPreview") as HTMLImageElement;
     p.src = S.imgData; p.style.display = "block";
+    document.getElementById("imgDrop")?.classList.add("has-image");
   };
   reader.readAsDataURL(file);
 }
@@ -1243,6 +2056,7 @@ async function submitStory(): Promise<void> {
   btn.disabled = true;
   btn.textContent = "⏳ Uploading to Shelby...";
   prog.classList.add("show");
+  _setModStatus("storyModStatus", "checking", "AI is moderating content before it's published...");
 
   try {
     if (!(window as any).shelby) {
@@ -1252,13 +2066,15 @@ async function submitStory(): Promise<void> {
         window.addEventListener("shelby:ready", () => { clearTimeout(t); resolve(undefined); }, { once: true });
       });
     }
-    btn.textContent = "⏳ Uploading to Shelby...";
+    btn.textContent = "🤖 AI is moderating content...";
     const shelbyAPI = (window as any).shelby;
     const result = await shelbyAPI.upload({
       title, desc, image: S.imgData,
       lat: S.lat, lng: S.lng, mood: S.mood, cat: S.cat,
       wallet: S.walletAddr,
     });
+    _setModStatus("storyModStatus", "ok", "Valid content — saving to Shelby...");
+    btn.textContent = "⏳ Uploading to Shelby...";
 
     const story = {
       id: "s" + Date.now(),
@@ -1268,6 +2084,7 @@ async function submitStory(): Promise<void> {
       fullAddr: S.walletAddr,
       mood: S.mood, cat: S.cat, tags: [S.cat],
       likes: 0, comments: 0, time: Date.now(),
+      tier: S.tier,
       img: result.imageUrl || S.imgData,
       cid: result.cid,
       isOwn: true,
@@ -1283,6 +2100,7 @@ async function submitStory(): Promise<void> {
     (document.getElementById("iTitle") as HTMLInputElement).value = "";
     (document.getElementById("iDesc")  as HTMLTextAreaElement).value = "";
     (document.getElementById("imgPreview") as HTMLImageElement).style.display = "none";
+    document.getElementById("imgDrop")?.classList.remove("has-image");
     (document.getElementById("imgFile")   as HTMLInputElement).value = "";
     (document.getElementById("coordsTxt") as HTMLElement).textContent = "Not selected";
     document.querySelectorAll(".mood-opt").forEach(b =>
@@ -1293,6 +2111,7 @@ async function submitStory(): Promise<void> {
 
     prog.classList.remove("show");
     btn.disabled = false; btn.textContent = "✦ PUBLISH TO SHELBY";
+    _setModStatus("storyModStatus", "hide");
     closeModal("postModal");
 
     const cidShort = result.cid.slice(0, 28) + "...";
@@ -1303,7 +2122,14 @@ async function submitStory(): Promise<void> {
     console.error("[GeoStory] submitStory error:", err);
     prog.classList.remove("show");
     btn.disabled = false; btn.textContent = "✦ PUBLISH TO SHELBY";
-    toast(`❌ Upload failed: ${err?.message ?? err}`);
+    if (err?.status === 422) {
+      // Rejected by AI moderation — surface it inline under the button,
+      // not just as a passing toast, so it doesn't get missed.
+      _setModStatus("storyModStatus", "rejected", err?.message || "Content violates community guidelines, please revise the title/description/image.");
+    } else {
+      _setModStatus("storyModStatus", "hide");
+      toast(`❌ Upload failed: ${err?.message ?? err}`);
+    }
   }
 }
 (window as any).submitStory = submitStory;
@@ -1363,7 +2189,7 @@ async function refreshFromShelby(): Promise<void> {
       imageBase64: data.image ?? undefined,
     };
 
-    const res = await fetch("https://geostory-0wfq.onrender.com/api/stories", {
+    const res = await fetch(`${API_BASE}/api/stories`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify(payload),
@@ -1374,7 +2200,12 @@ async function refreshFromShelby(): Promise<void> {
     try { json = JSON.parse(text); } catch {
       throw new Error(`Server error ${res.status} — response is not JSON: ${text.slice(0, 120)}`);
     }
-    if (!res.ok || !json.success) throw new Error(json.error ?? `Upload failed (${res.status})`);
+    if (!res.ok || !json.success) {
+      const err: any = new Error(json.error ?? `Upload failed (${res.status})`);
+      err.status = res.status;
+      err.categories = json.categories;
+      throw err;
+    }
     return { cid: json.blobName, txHash: undefined, imageUrl: json.imageUrl };
   },
 };
@@ -1384,7 +2215,7 @@ async function refreshFromShelby(): Promise<void> {
 ════════════════════════════════════════ */
 export async function loadStoriesFromShelby(accountAddress: string): Promise<any[]> {
   try {
-    const res  = await fetch("https://geostory-0wfq.onrender.com/api/stories");
+    const res  = await fetch(`${API_BASE}/api/stories`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
     const data = JSON.parse(text);
@@ -1415,6 +2246,7 @@ function normalizeStory(data: any, currentAccount: string): any {
     likes:     0,
     comments:  0,
     time:      data.time        ?? data.createdAt ?? Date.now(),
+    tier:      data.tier        ?? "free",
     img,
     cid:       `shelby://${author}/${blobName}`,
     isOwn:     false,
@@ -1470,7 +2302,13 @@ async function loadUserStories(address: string): Promise<void> {
 async function loadLikesForStories(): Promise<void> {
   if (!S.stories.length) return;
   try {
-    const targets = S.stories.filter((s: any) => s.fromChain).slice(0, 20);
+    // NOTE: previously capped at the newest 20 stories — any story outside
+    // that window kept the default empty likedBy Set from normalizeStory(),
+    // so the like button could never show as "already liked" for it even if
+    // the connected wallet genuinely liked it before. Now we hydrate ALL
+    // loaded on-chain stories (still chunked so we don't fire everything in
+    // parallel).
+    const targets = S.stories.filter((s: any) => s.fromChain);
     if (!targets.length) return;
 
     const CHUNK = 5;
@@ -1481,12 +2319,17 @@ async function loadLikesForStories(): Promise<void> {
           try {
             const ctrl  = new AbortController();
             const timer = setTimeout(() => ctrl.abort(), 4000);
-            const r     = await fetch(`https://geostory-0wfq.onrender.com/api/stories/${s.id}/likes`, { signal: ctrl.signal });
+            const r     = await fetch(`${API_BASE}/api/stories/${s.id}/likes`, { signal: ctrl.signal });
             clearTimeout(timer);
             if (!r.ok) return;
             const data  = await r.json();
             s.likes     = typeof data.count === "number" ? data.count : 0;
-            s.likedBy   = new Set(Array.isArray(data.likedBy) ? data.likedBy : []);
+            // Normalize to lowercase so wallet-address casing differences
+            // (e.g. between wallet providers/sessions) never cause a story
+            // the user already liked to render as "not liked".
+            s.likedBy   = new Set(
+              (Array.isArray(data.likedBy) ? data.likedBy : []).map((w: string) => (w || "").toLowerCase())
+            );
           } catch { /* timeout/network error → skip */ }
         })
       );
@@ -1506,9 +2349,10 @@ async function likeStory(id: string): Promise<void> {
   const s = S.stories.find((x: any) => x.id === id);
   if (!s) return;
 
-  const alreadyLiked = s.likedBy.has(S.walletAddr);
-  if (alreadyLiked) { s.likedBy.delete(S.walletAddr); s.likes = Math.max(0, s.likes - 1); }
-  else              { s.likedBy.add(S.walletAddr);    s.likes++; }
+  const myWallet = S.walletAddr.toLowerCase();
+  const alreadyLiked = s.likedBy.has(myWallet);
+  if (alreadyLiked) { s.likedBy.delete(myWallet); s.likes = Math.max(0, s.likes - 1); }
+  else              { s.likedBy.add(myWallet);    s.likes++; }
 
   _updateLikeButtons(s);
   renderFeed();
@@ -1519,7 +2363,7 @@ async function likeStory(id: string): Promise<void> {
   }
 
   try {
-    const r = await fetch(`https://geostory-0wfq.onrender.com/api/stories/${id}/like`, {
+    const r = await fetch(`${API_BASE}/api/stories/${id}/like`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ wallet: S.walletAddr }),
@@ -1528,14 +2372,16 @@ async function likeStory(id: string): Promise<void> {
     if (!r.ok) throw new Error(data.error ?? "Like failed");
 
     s.likes   = data.count ?? s.likes;
-    s.likedBy = new Set(Array.isArray(data.likedBy) ? data.likedBy : [...s.likedBy]);
+    s.likedBy = new Set(
+      (Array.isArray(data.likedBy) ? data.likedBy : [...s.likedBy]).map((w: string) => (w || "").toLowerCase())
+    );
     _updateLikeButtons(s);
     renderFeed();
 
     toast(data.action === "liked" ? "❤ Liked!" : "💔 Unliked");
   } catch (err: any) {
-    if (alreadyLiked) { s.likedBy.add(S.walletAddr!); s.likes++; }
-    else              { s.likedBy.delete(S.walletAddr!); s.likes = Math.max(0, s.likes - 1); }
+    if (alreadyLiked) { s.likedBy.add(myWallet); s.likes++; }
+    else              { s.likedBy.delete(myWallet); s.likes = Math.max(0, s.likes - 1); }
     renderFeed();
     toast("⚠ Could not save like: " + (err?.message ?? err));
     console.error("[GeoStory] likeStory error:", err);
@@ -1544,7 +2390,7 @@ async function likeStory(id: string): Promise<void> {
 (window as any).likeStory = likeStory;
 
 function _updateLikeButtons(s: any): void {
-  const liked = S.walletAddr && s.likedBy.has(S.walletAddr);
+  const liked = !!S.walletAddr && s.likedBy.has(S.walletAddr.toLowerCase());
   const cardBtn = document.getElementById(`card-like-${s.id}`);
   if (cardBtn) {
     cardBtn.querySelector(".rxn-num")!.textContent = s.likes;
@@ -1567,7 +2413,7 @@ async function loadComments(storyId: string): Promise<any[]> {
   try {
     const ctrl  = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 5000);
-    const r     = await fetch(`https://geostory-0wfq.onrender.com/api/stories/${storyId}/comments`, { signal: ctrl.signal });
+    const r     = await fetch(`${API_BASE}/api/stories/${storyId}/comments`, { signal: ctrl.signal });
     clearTimeout(timer);
     if (!r.ok) return [];
     const data = await r.json();
@@ -1631,6 +2477,7 @@ function renderComments(storyId: string, comments: any[]): void {
     <div class="cmt-item">
       <div class="cmt-meta">
         <span class="cmt-wallet">${esc(c.wallet ? c.wallet.slice(0,8) + "..." + c.wallet.slice(-4) : "anon")}</span>
+        ${renderTierBadge(c.tier)}
         <span class="cmt-time">${timeAgo(c.time)}</span>
       </div>
       <div class="cmt-text">${esc(c.text)}</div>
@@ -1656,7 +2503,7 @@ async function submitComment(): Promise<void> {
   btn.textContent = "...posting";
 
   try {
-    const r = await fetch(`https://geostory-0wfq.onrender.com/api/stories/${storyId}/comments`, {
+    const r = await fetch(`${API_BASE}/api/stories/${storyId}/comments`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ wallet: S.walletAddr, text }),
@@ -1752,7 +2599,7 @@ function toggleHeat(btn: HTMLElement): void {
       toast("🌡 Heatmap ON");
     } else {
       btn.classList.remove("on");
-      toast("⚠ Chưa có story nào để hiển thị heatmap");
+      toast("⚠ No stories available to show on heatmap yet");
     }
   } else {
     if (_heatLayer) { map.removeLayer(_heatLayer); _heatLayer = null; }
@@ -1820,6 +2667,7 @@ imgDrop.addEventListener("drop", e => {
       S.imgData = (ev.target as FileReader).result as string;
       const p = document.getElementById("imgPreview") as HTMLImageElement;
       p.src = S.imgData; p.style.display = "block";
+      document.getElementById("imgDrop")?.classList.add("has-image");
     };
     r.readAsDataURL(file);
   }
@@ -1936,9 +2784,8 @@ document.addEventListener("keydown", (e: KeyboardEvent) => {
 
     showLoading();
     try {
-      const url  = `https://geostory-0wfq.onrender.com/api/geocode/search?q=${encodeURIComponent(q)}&limit=6`;
-      const res  = await fetch(url);
-      const data = await res.json();
+      const url = `${API_BASE}/api/geocode/search?q=${encodeURIComponent(q)}&limit=6`;
+      const { data } = await safeFetchJson(url);
       if (!data.length) { showEmpty(q); return; }
       renderItems(data);
     } catch {
@@ -2061,7 +2908,7 @@ function _aiUpdateLocation(): void {
   const c     = map.getCenter();
   const locEl = document.getElementById("aiLoc");
 
-  fetch(`https://geostory-0wfq.onrender.com/api/geocode/reverse?lat=${c.lat}&lon=${c.lng}`)
+  fetch(`${API_BASE}/api/geocode/reverse?lat=${c.lat}&lon=${c.lng}`)
     .then(r => {
       if (!r.ok) throw new Error("geocode " + r.status);
       return r.json();
@@ -2106,6 +2953,27 @@ async function aiSend(): Promise<void> {
   const input = document.getElementById("aiInput") as HTMLInputElement;
   const text  = input.value.trim();
   if (!text) return;
+
+  if (!S.walletAddr) {
+    _aiAddMsg(text, "user");
+    input.value = "";
+    _aiAddMsg("🔒 Please connect your wallet to chat with the AI Companion.", "ai");
+    const quickEl = document.getElementById("aiQuick");
+    if (quickEl) quickEl.style.display = "none";
+    setTimeout(() => openModal("walletModal"), 900);
+    return;
+  }
+
+  if (S.tier === "free") {
+    _aiAddMsg(text, "user");
+    input.value = "";
+    _aiAddMsg("🔒 AI Companion is a Pro/Premium feature. Upgrade to unlock unlimited local insights!", "ai");
+    const quickEl = document.getElementById("aiQuick");
+    if (quickEl) quickEl.style.display = "none";
+    setTimeout(() => openPricingModal(), 900);
+    return;
+  }
+
   input.value = "";
 
   const quickEl = document.getElementById("aiQuick");
@@ -2117,11 +2985,18 @@ async function aiSend(): Promise<void> {
   try {
     const center = map.getCenter();
 
-    const zoom     = map.getZoom();
-    const radiusKm = zoom >= 12 ? 10
-                   : zoom >= 8  ? 50
-                   : zoom >= 5  ? 200
-                   : 500;
+    const zoom = map.getZoom();
+    // Kept intentionally tight — this list is meant to read as "right around
+    // where you're asking about", not "somewhere in the same region". It used
+    // to scale up to 200-500km when the map was zoomed out, which meant
+    // chatting about, say, Hải Phòng while the map was zoomed out could pull
+    // in stories from Hưng Yên or further — technically "on screen" but not
+    // remotely what "nearby" should mean. Capped hard at 35km now, even at
+    // the widest zoom levels.
+    const radiusKm = zoom >= 13 ? 5
+                   : zoom >= 11 ? 10
+                   : zoom >= 9  ? 20
+                   : 35; // hard cap regardless of how zoomed out the map is
 
     const detectedCat = _aiDetectCategory(text);
 
@@ -2152,28 +3027,30 @@ async function aiSend(): Promise<void> {
       lng:    s.lng,
     }));
 
-    const res = await fetch("https://geostory-0wfq.onrender.com/api/ai/companion", {
+    const { ok, data } = await safeFetchJson(`${API_BASE}/api/ai/companion`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message: text,
         history: _aiHistory.slice(-6),
+        wallet:  S.walletAddr,
         context: {
           placeName:   (window as any)._aiPlaceName || null,
           lat:         center.lat,
           lng:         center.lng,
           nearby:      nearbyPayload,
+          nearbyRadiusKm: radiusKm,
           detectedCat: detectedCat || null,
           time:        new Date().toLocaleString("vi-VN"),
         },
       }),
-    });
+    }, { timeoutMs: 60_000 }); // AI có thể mất thời gian phản hồi lâu hơn
 
-    const data = await res.json();
     _aiRemoveTyping();
 
-    if (!res.ok) {
-      _aiAddMsg(data.error || "An error occurred, please try again later!", "ai");
+    if (!ok) {
+      _aiAddMsg(data?.error || "An error occurred, please try again later!", "ai");
+      if (data?.upgradeRequired) setTimeout(() => openPricingModal(), 900);
       return;
     }
 
@@ -2181,7 +3058,14 @@ async function aiSend(): Promise<void> {
     _aiHistory.push({ role: "user",  text });
     _aiHistory.push({ role: "model", text: reply });
 
-    _aiAddMsg(reply, "ai", nearby);
+    // Sponsored slot: the nearest active feed/combo ad within reach of where
+    // the person is asking, if any — prioritized as suggestion #1.
+    // getActiveFeedAds() already filters to ads whose paid reach radius
+    // covers the current map center, so we just need the closest one.
+    const nearestAd = [...getActiveFeedAds()]
+      .sort((a: any, b: any) => getDistance(a.lat, a.lng, center.lat, center.lng) - getDistance(b.lat, b.lng, center.lat, center.lng))[0] || null;
+
+    _aiAddMsg(reply, "ai", nearby, nearestAd);
 
   } catch {
     _aiRemoveTyping();
@@ -2196,7 +3080,20 @@ function aiQuickAsk(text: string): void {
 }
 (window as any).aiQuickAsk = aiQuickAsk;
 
-function _aiAddMsg(text: string, role: string, nearbyStories?: any[]): void {
+const AI_MAX_SUGGESTIONS = 3;
+
+function _aiOpenAdPopup(ad: any): void {
+  const html = `
+    <div class="pop-card">
+      ${ad.imageBase64 ? `<img class="pop-img" src="${ad.imageBase64}">` : ""}
+      <div class="pop-title">📢 ${esc(ad.title)}</div>
+      <div class="pop-author"><span class="ad-tag">SPONSORED</span></div>
+      <div class="pop-desc">${esc(ad.description)}</div>
+    </div>`;
+  L.popup({ className: "custom-popup" }).setLatLng([ad.lat, ad.lng]).setContent(html).openOn(map);
+}
+
+function _aiAddMsg(text: string, role: string, nearbyStories?: any[], nearestAd?: any | null): void {
   const wrap = document.getElementById("aiMessages")!;
   const div  = document.createElement("div");
   div.className = "ai-msg ai-msg--" + role;
@@ -2204,10 +3101,31 @@ function _aiAddMsg(text: string, role: string, nearbyStories?: any[]): void {
   if (role === "ai") {
     div.innerHTML = _aiEscapeHtml(text);
 
-    const mentioned = _aiExtractMentioned(text, nearbyStories || []);
-    if (mentioned.length > 0) {
+    // Max 3 suggestions total: 1 sponsored ad slot (closest active feed ad,
+    // if any) prioritized first, then up to 2 stories matching the question.
+    const storySlots = nearestAd ? AI_MAX_SUGGESTIONS - 1 : AI_MAX_SUGGESTIONS;
+    const mentioned  = _aiExtractMentioned(text, nearbyStories || []).slice(0, storySlots);
+
+    if (mentioned.length > 0 || nearestAd) {
       const chipsWrap = document.createElement("div");
       chipsWrap.className = "ai-story-chips";
+
+      if (nearestAd) {
+        const chip = document.createElement("button");
+        chip.className = "ai-story-chip ai-story-chip--ad";
+        chip.innerHTML = `
+          <span class="ai-chip-cat">📢</span>
+          <span class="ai-chip-title">${_aiEscapeHtml(nearestAd.title)}</span>
+          <span class="ai-chip-badge ai-chip-badge--sponsored">Sponsored</span>
+          <span class="ai-chip-arrow">→</span>
+        `;
+        chip.onclick = () => {
+          if ((window as any)._globeWrap?.classList.contains("active")) exitGlobe();
+          map.flyTo([nearestAd.lat, nearestAd.lng], 14, { duration: 1.2 });
+          map.once("moveend", () => _aiOpenAdPopup(nearestAd));
+        };
+        chipsWrap.appendChild(chip);
+      }
 
       mentioned.forEach((s: any) => {
         const full = (S.stories || []).find((x: any) => x.id === s.id) || s;
@@ -2296,7 +3214,7 @@ if (SERVER_ACCOUNT) {
     setTimeout(async () => {
       toast("⏳ Loading stories from Shelby...");
       try {
-        const res  = await fetch("https://geostory-0wfq.onrender.com/api/stories");
+        const res  = await fetch(`${API_BASE}/api/stories`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = JSON.parse(await res.text());
         if (Array.isArray(data.stories) && data.stories.length) {
