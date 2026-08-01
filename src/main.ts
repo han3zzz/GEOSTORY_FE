@@ -2531,7 +2531,7 @@ async function submitComment(): Promise<void> {
     toast("⚠ Could not post: " + (err?.message ?? err));
   } finally {
     btn.disabled    = false;
-    btn.textContent = "↑ POST";
+    btn.textContent = "↑ SEND";
   }
 }
 (window as any).submitComment = submitComment;
