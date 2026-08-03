@@ -20,7 +20,7 @@ Live: [geostory.xyz](https://geostory.xyz)
 
 ## Backend
 
-The app talks to a separate Express API (not in this repo's `src/`, but included as `server.ts` at the root) which holds the Shelby signing key and verifies on-chain payments. It is deployed separately, currently on Render:
+The app talks to a separate Express API included as server.ts at the root which holds the Shelby signing key and verifies on-chain payments. It is deployed separately, currently on Render:
 
 ```
 https://geostory-0wfq.onrender.com
