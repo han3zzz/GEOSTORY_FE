@@ -1,4 +1,4 @@
-# GEOSTORY_FE
+# GEOSTORY
 
 Frontend for **GeoStory**, a map-based app for posting location-tagged stories, storing them on **Shelby Protocol**, and paying for subscriptions/ads on **Aptos**.
 
