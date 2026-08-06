@@ -554,6 +554,39 @@ body {
   color: var(--accent);
 }
 
+/* ── LIKE LOADING SPINNER ──
+   Áp dụng cho cả nút like trên card (.rxn-like) lẫn trong popup bản đồ
+   (.pop-btn-like) trong lúc request lên server đang chạy: ẩn hẳn nội dung
+   cũ (icon/số like) và chỉ hiện 1 vòng tròn xoay ở giữa nút, đồng thời
+   khoá không cho bấm tiếp cho tới khi xong. */
+.rxn-btn.like-pending,
+.pop-btn-like.like-pending {
+  position: relative;
+  pointer-events: none;
+}
+.rxn-btn.like-pending > *,
+.pop-btn-like.like-pending > * {
+  visibility: hidden;
+}
+.rxn-btn.like-pending::after,
+.pop-btn-like.like-pending::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 11px;
+  height: 11px;
+  margin: -6px 0 0 -6px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: like-spin 0.6s linear infinite;
+  visibility: visible;
+}
+@keyframes like-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ── FILTER BAR ── */
 #filterBar {
   position: fixed;
