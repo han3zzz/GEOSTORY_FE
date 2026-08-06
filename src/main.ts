@@ -53,8 +53,12 @@ const MOOD_COLOR: Record<string, string> = {
 /* ════════════════════════════════════════
    SUBSCRIPTIONS — pricing config (mirrors server.ts)
 ════════════════════════════════════════ */
-
-const API_BASE = "https://geostory-0wfq.onrender.com"
+// Tự động chọn backend theo môi trường đang chạy:
+// - Web mở từ localhost/127.0.0.1 (đang dev/test) → gọi server local.
+//   LƯU Ý: phải là http:// (không phải https://) vì Express chạy local
+//   không có SSL certificate.
+// - Web đã deploy thật → gọi server production trên Render.
+const API_BASE = "http://localhost:3001"
 /**
  * Fetch wrapper an toàn cho các endpoint trả JSON.
  *
@@ -853,7 +857,7 @@ function showPopup(story: any): void {
   const tags  = (story.tags || []).map((t: string) => `<span class="pop-tag">${esc(t)}</span>`).join("");
   const liked = !!S.walletAddr && story.likedBy.has(S.walletAddr.toLowerCase());
   const chainBadge = story.fromChain
-    ? `<div class="pop-chain-badge">⛓ ON-CHAIN · SHELBY TESTNET</div>` : "";
+    ? `<div class="pop-chain-badge">⛓ ON-CHAIN · SHELBYNET</div>` : "";
   const cmtCount = Array.isArray(story.commentList) ? story.commentList.length : (story.comments || 0);
 
   L.popup({ maxWidth: 300, className: "" })
@@ -1035,7 +1039,7 @@ type UserResponseStatus = typeof UserResponseStatus[keyof typeof UserResponseSta
 /* ════════════════════════════════════════
    CONFIG
 ════════════════════════════════════════ */
-const NETWORK        = Network.TESTNET;
+const NETWORK        = Network.SHELBYNET;
 const SERVER_ACCOUNT = (import.meta as any).env.VITE_SHELBY_ACCOUNT_ADDRESS ?? "";
 
 let _autoLoadDone    = false;
@@ -1751,7 +1755,7 @@ function renderWalletOptions(): void {
     const sep = document.createElement("div");
     sep.className      = "wallet-section-title";
     sep.style.marginTop = "12px";
-    sep.textContent    = "TESTNET";
+    sep.textContent    = "SHELBYNET";
     container.appendChild(sep);
     container.appendChild(demoOpt as Node);
   }
@@ -1802,8 +1806,8 @@ async function connectAptosWallet(walletName: string): Promise<void> {
     const networkFn = wallet.features["aptos:network"]?.network;
     if (networkFn) {
       const net = await networkFn();
-      if (net?.name?.toLowerCase() !== "testnet") {
-        toast(`⚠ Please switch ${wallet.name} to Testnet`);
+      if (net?.name?.toLowerCase() !== "shelbynet") {
+        toast(`⚠ Please switch ${wallet.name} to Shelbynet`);
         await wallet.features["aptos:disconnect"]?.disconnect?.().catch(() => {});
         _connectedWallet = null;
         return;
@@ -1824,8 +1828,8 @@ async function connectAptosWallet(walletName: string): Promise<void> {
     });
 
     wallet.features["aptos:onNetworkChange"]?.onNetworkChange?.((net: any) => {
-      if (net?.name?.toLowerCase() !== "testnet") {
-        toast(`⚠ ${wallet.name} has left Testnet`);
+      if (net?.name?.toLowerCase() !== "shelbynet") {
+        toast(`⚠ ${wallet.name} has left Shelbynet`);
       }
     });
 
