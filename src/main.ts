@@ -58,7 +58,7 @@ const MOOD_COLOR: Record<string, string> = {
 //   LƯU Ý: phải là http:// (không phải https://) vì Express chạy local
 //   không có SSL certificate.
 // - Web đã deploy thật → gọi server production trên Render.
-const API_BASE = "https://geostory-0wfq.onrender.com"
+const API_BASE = "http://localhost:3001"
 /**
  * Fetch wrapper an toàn cho các endpoint trả JSON.
  *
@@ -871,7 +871,7 @@ function showPopup(story: any): void {
         <div class="pop-desc">${esc(story.desc)}</div>
         <div class="pop-tags">${tags}</div>
         <div class="pop-actions">
-          <button class="pop-btn pop-btn-like${liked ? " liked" : ""}" id="poplike-${esc(story.id)}" onclick="likeStory('${esc(story.id)}')">❤ ${story.likes}</button>
+          <button class="pop-btn pop-btn-like${liked ? " liked" : ""}" id="poplike-${esc(story.id)}" onclick="likeStory('${esc(story.id)}')"><span class="pop-like-txt">❤ ${story.likes}</span></button>
           <button class="pop-btn pop-btn-cmt" data-id="${esc(story.id)}" onclick="openCommentModal('${esc(story.id)}')">💬 <span class="pop-cmt-num">${cmtCount}</span></button>
           <button class="pop-btn pop-btn-share" onclick="shareStory('${esc(story.id)}')">↗</button>
         </div>
@@ -2348,8 +2348,16 @@ async function loadLikesForStories(): Promise<void> {
 }
 (window as any).loadLikesForStories = loadLikesForStories;
 
+// Chặn double-submit: nếu 1 lượt like/unlike cho story này đang gửi lên
+// server (chưa có phản hồi), bỏ qua các lượt bấm tiếp theo cho tới khi xong.
+// Vẫn giữ optimistic UI update (đổi tim/số đếm ngay) nhưng không bắn thêm
+// request — tránh lãng phí gas và giảm race condition phía server.
+const _pendingLikes = new Set<string>();
+
 async function likeStory(id: string): Promise<void> {
   if (!S.walletAddr) { toast("Connect wallet to like"); return; }
+  if (_pendingLikes.has(id)) return;
+
   const s = S.stories.find((x: any) => x.id === id);
   if (!s) return;
 
@@ -2366,6 +2374,8 @@ async function likeStory(id: string): Promise<void> {
     return;
   }
 
+  _pendingLikes.add(id);
+  _setLikePending(id, true);
   try {
     const r = await fetch(`${API_BASE}/api/stories/${id}/like`, {
       method:  "POST",
@@ -2389,6 +2399,9 @@ async function likeStory(id: string): Promise<void> {
     renderFeed();
     toast("⚠ Could not save like: " + (err?.message ?? err));
     console.error("[GeoStory] likeStory error:", err);
+  } finally {
+    _pendingLikes.delete(id);
+    _setLikePending(id, false);
   }
 }
 (window as any).likeStory = likeStory;
@@ -2402,9 +2415,18 @@ function _updateLikeButtons(s: any): void {
   }
   const popBtn = document.getElementById(`poplike-${s.id}`);
   if (popBtn) {
-    popBtn.textContent = `❤ ${s.likes}`;
+    const txt = popBtn.querySelector(".pop-like-txt");
+    if (txt) txt.textContent = `❤ ${s.likes}`;
     popBtn.classList.toggle("liked", !!liked);
   }
+}
+
+// Bật/tắt hiệu ứng loading (spinner) trên nút like trong lúc request đang
+// chạy — áp dụng cho cả bản trên card lẫn bản trong popup bản đồ, vì cùng
+// 1 story có thể đang hiển thị ở cả 2 nơi cùng lúc.
+function _setLikePending(id: string, pending: boolean): void {
+  document.getElementById(`card-like-${id}`)?.classList.toggle("like-pending", pending);
+  document.getElementById(`poplike-${id}`)?.classList.toggle("like-pending", pending);
 }
 
 /* ════════════════════════════════════════
