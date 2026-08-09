@@ -20,11 +20,8 @@ Live: [geostory.xyz](https://geostory.xyz)
 
 ## Backend
 
-The app talks to a separate Express API included as server.ts at the root which holds the Shelby signing key and verifies on-chain payments. It is deployed separately, currently on Render:
+The app talks to a separate Express API included as server.ts at the root which holds the Shelby signing key and verifies on-chain payments.
 
-```
-https://geostory-0wfq.onrender.com
-```
 
 `vite.config.ts` proxies local `/api/*` requests to that URL during development.
 
