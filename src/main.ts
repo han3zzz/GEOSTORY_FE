@@ -1,14 +1,4 @@
-/**
- *
- * Wallet: Petra / AIP-62 · MetaMask (EVM) · Demo
- *   → Used only for identity verification (getting wallet address)
- *   → Does NOT sign upload transactions — server handles everything
- *
- * Storage: server uploads to Shelby dev account
- *   → All blobs stored under one address (SHELBY_ACCOUNT_ADDRESS)
- *   → author field = actual wallet address of the user
- *   → Later used to tip authors directly via wallet (AIP-62 transfer)
- */
+
 
 // ── Buffer polyfill ───────────────────────────────────────────────────────────
 import { Buffer } from "buffer";
@@ -58,7 +48,7 @@ const MOOD_COLOR: Record<string, string> = {
 //   LƯU Ý: phải là http:// (không phải https://) vì Express chạy local
 //   không có SSL certificate.
 // - Web đã deploy thật → gọi server production trên Render.
-const API_BASE = "https://geostory-0wfq.onrender.com"
+const API_BASE = "http://localhost:3001"
 /**
  * Fetch wrapper an toàn cho các endpoint trả JSON.
  *
@@ -1805,7 +1795,20 @@ async function connectAptosWallet(walletName: string): Promise<void> {
 
     const networkFn = wallet.features["aptos:network"]?.network;
     if (networkFn) {
-      const net = await networkFn();
+      // Ngay sau khi ví vừa approve (re)connect — đặc biệt là reconnect trong
+      // cùng phiên trang ngay sau disconnect — một số extension chưa kịp
+      // đồng bộ xong network state nội bộ, nên lần đọc network() đầu tiên có
+      // thể trả về giá trị cũ dù ví thực tế đã ở đúng mạng. Reload trang chỉ
+      // "sửa" được vì extension inject lại state mới từ đầu. Ta giả lập điều
+      // đó bằng cách retry vài lần với delay ngắn trước khi coi là lệch mạng
+      // thật sự.
+      let net = await networkFn();
+      let attempts = 0;
+      while (net?.name?.toLowerCase() !== "shelbynet" && attempts < 4) {
+        await delay(300);
+        net = await networkFn();
+        attempts++;
+      }
       if (net?.name?.toLowerCase() !== "shelbynet") {
         toast(`⚠ Please switch ${wallet.name} to Shelbynet`);
         await wallet.features["aptos:disconnect"]?.disconnect?.().catch(() => {});
@@ -2081,7 +2084,10 @@ async function submitStory(): Promise<void> {
     btn.textContent = "⏳ Uploading to Shelby...";
 
     const story = {
-      id: "s" + Date.now(),
+      // Dùng chính id mà server đã sinh và lưu trữ (result.id), không tự tạo
+      // id cục bộ nữa — để link share và trạng thái like luôn khớp với dữ
+      // liệu thật trên server sau khi reload trang.
+      id: result.id,
       title, desc,
       lat: S.lat, lng: S.lng,
       author:   S.walletAddr.slice(0, 8) + "..." + S.walletAddr.slice(-4),
@@ -2172,7 +2178,7 @@ async function refreshFromShelby(): Promise<void> {
     mood:   string;
     cat:    string;
     wallet: string;
-  }): Promise<{ cid: string; txHash?: string; imageUrl?: string }> => {
+  }): Promise<{ id: string; cid: string; txHash?: string; imageUrl?: string }> => {
 
     if (data.image) {
       const commaIdx = data.image.indexOf(",");
@@ -2210,7 +2216,13 @@ async function refreshFromShelby(): Promise<void> {
       err.categories = json.categories;
       throw err;
     }
-    return { cid: json.blobName, txHash: undefined, imageUrl: json.imageUrl };
+    // QUAN TRỌNG: phải trả về đúng `id` mà server đã sinh và lưu (json.id),
+    // KHÔNG được để caller tự bịa id riêng — nếu không thì link share
+    // (?story=<id>) và like (POST /api/stories/:id/like) sẽ được lưu dưới
+    // một id "ảo" chỉ tồn tại phía client, còn khi load lại từ server
+    // (GET /api/stories) thì story lại có id do server sinh, khác hẳn ⇒ link
+    // share bị "not found" và like bị mất khi reload.
+    return { id: json.id, cid: json.blobName, txHash: undefined, imageUrl: json.imageUrl };
   },
 };
 
