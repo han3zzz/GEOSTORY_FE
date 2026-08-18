@@ -48,7 +48,7 @@ const MOOD_COLOR: Record<string, string> = {
 //   LƯU Ý: phải là http:// (không phải https://) vì Express chạy local
 //   không có SSL certificate.
 // - Web đã deploy thật → gọi server production trên Render.
-const API_BASE = "http://localhost:3001"
+const API_BASE = "https://geostory-0wfq.onrender.com"
 /**
  * Fetch wrapper an toàn cho các endpoint trả JSON.
  *
