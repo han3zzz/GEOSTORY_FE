@@ -206,8 +206,9 @@ const map = L.map("map", {
   minZoom: 3,
 });
 
-const TILE_URL_DARK  = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-const TILE_URL_LIGHT = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+const CARTO_KEY = "eyJhbGciOiJIUzI1NiJ9.eyJhIjoiYWNfc3cxYTk3c2wiLCJqdGkiOiI3OWY0YzZhMCJ9.Iq5C5P4XVakRsOs3ZHFmjGzI2-emygGZF-LmFbrV7Rk"; // lấy tại carto.com/basemaps/apikey
+const TILE_URL_DARK  = `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`;
+const TILE_URL_LIGHT = `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`;
 
 let _mapTileLayer = L.tileLayer(TILE_URL_DARK, {
   maxZoom: 19,
