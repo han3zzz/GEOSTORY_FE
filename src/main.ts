@@ -2062,7 +2062,7 @@ async function submitStory(): Promise<void> {
   const btn  = document.getElementById("subBtn") as HTMLButtonElement;
   const prog = document.getElementById("progWrap")!;
   btn.disabled = true;
-  btn.textContent = "⏳ Uploading to Shelby...";
+  btn.textContent = "⏳ Uploading to GeoStory...";
   prog.classList.add("show");
   _setModStatus("storyModStatus", "checking", "AI is moderating content before it's published...");
 
@@ -2121,7 +2121,7 @@ async function submitStory(): Promise<void> {
     if (S.tempMarker) { map.removeLayer(S.tempMarker); S.tempMarker = null; }
 
     prog.classList.remove("show");
-    btn.disabled = false; btn.textContent = "✦ PUBLISH TO SHELBY";
+    btn.disabled = false; btn.textContent = "✦ PUBLISH TO GEOSTORY";
     _setModStatus("storyModStatus", "hide");
     closeModal("postModal");
 
@@ -2132,7 +2132,7 @@ async function submitStory(): Promise<void> {
   } catch (err: any) {
     console.error("[GeoStory] submitStory error:", err);
     prog.classList.remove("show");
-    btn.disabled = false; btn.textContent = "✦ PUBLISH TO SHELBY";
+    btn.disabled = false; btn.textContent = "✦ PUBLISH TO GEOSTORY";
     if (err?.status === 422) {
       // Rejected by AI moderation — surface it inline under the button,
       // not just as a passing toast, so it doesn't get missed.
